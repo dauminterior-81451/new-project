@@ -1,6 +1,14 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  loadMaterialPriceSettings,
+  loadSavedProjects,
+  loadSavedZones,
+  saveMaterialPriceSettings,
+  saveSavedProjects,
+  saveSavedZones,
+} from "@/lib/storage/materialStorage";
 import { materials, type MaterialCategory } from "./materials";
 
 type WorkType = "ceiling" | "wall";
@@ -216,10 +224,6 @@ type SavedProject = {
   totalMaterialAmount: number;
 };
 
-const STORAGE_KEY = "daum-woodwork-zone-estimates";
-const PROJECT_STORAGE_KEY = "daum-woodwork-project-estimates";
-const MATERIAL_PRICE_STORAGE_KEY = "materialPriceSettings";
-
 const formatNumber = (value: number) =>
   new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 }).format(value);
 
@@ -397,52 +401,47 @@ const createDefaultMaterialPriceSettings = (): MaterialPriceSettings => ({
 });
 
 const parseMaterialPriceSettings = (
-  value: string | null,
+  value: Partial<MaterialPriceSettings> | null,
 ): MaterialPriceSettings | null => {
   if (!value) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(value) as Partial<MaterialPriceSettings>;
+  const parsed = value;
 
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-
-    if (Array.isArray(parsed.materials)) {
-      return {
-        updatedAt:
-          typeof parsed.updatedAt === "string" ? parsed.updatedAt : null,
-        materials: normalizeMaterials(parsed.materials),
-      };
-    }
-
-    if (!parsed.prices) {
-      return null;
-    }
-
-    const legacyMaterials = createDefaultManagedMaterials().map((material) => {
-      const price = parsed.prices?.[material.id];
-
-      return {
-        ...material,
-        price:
-          typeof price === "number" && Number.isFinite(price)
-            ? price
-            : price === null
-              ? null
-              : material.price,
-      };
-    });
-
-    return {
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : null,
-      materials: legacyMaterials,
-    };
-  } catch {
+  if (!parsed || typeof parsed !== "object") {
     return null;
   }
+
+  if (Array.isArray(parsed.materials)) {
+    return {
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : null,
+      materials: normalizeMaterials(parsed.materials),
+    };
+  }
+
+  if (!parsed.prices) {
+    return null;
+  }
+
+  const legacyMaterials = createDefaultManagedMaterials().map((material) => {
+    const price = parsed.prices?.[material.id];
+
+    return {
+      ...material,
+      price:
+        typeof price === "number" && Number.isFinite(price)
+          ? price
+          : price === null
+            ? null
+            : material.price,
+    };
+  });
+
+  return {
+    updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : null,
+    materials: legacyMaterials,
+  };
 };
 
 const getLumberSpecId = (estimate: SavedEstimate): LumberSpecKey => {
@@ -952,28 +951,18 @@ export default function Home() {
     null;
 
   useEffect(() => {
-    const savedValue = window.localStorage.getItem(STORAGE_KEY);
-    const savedProjectsValue = window.localStorage.getItem(PROJECT_STORAGE_KEY);
-    const materialPriceValue = window.localStorage.getItem(
-      MATERIAL_PRICE_STORAGE_KEY,
-    );
-
-    window.queueMicrotask(() => {
-      const savedMaterialPriceSettings =
-        parseMaterialPriceSettings(materialPriceValue);
+    window.queueMicrotask(async () => {
+      const savedMaterialPriceSettings = parseMaterialPriceSettings(
+        await loadMaterialPriceSettings<Partial<MaterialPriceSettings>>(),
+      );
 
       if (savedMaterialPriceSettings) {
         setMaterialPriceSettings(savedMaterialPriceSettings);
         setMaterialEditorValues(deepCopy(savedMaterialPriceSettings.materials));
       }
 
-      if (savedValue) {
-        setSavedEstimates(JSON.parse(savedValue) as SavedEstimate[]);
-      }
-
-      if (savedProjectsValue) {
-        setSavedProjects(JSON.parse(savedProjectsValue) as SavedProject[]);
-      }
+      setSavedEstimates(await loadSavedZones<SavedEstimate>());
+      setSavedProjects(await loadSavedProjects<SavedProject>());
 
       setIsStorageLoaded(true);
     });
@@ -984,7 +973,7 @@ export default function Home() {
       return;
     }
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedEstimates));
+    saveSavedZones(savedEstimates);
   }, [isStorageLoaded, savedEstimates]);
 
   useEffect(() => {
@@ -992,10 +981,7 @@ export default function Home() {
       return;
     }
 
-    window.localStorage.setItem(
-      PROJECT_STORAGE_KEY,
-      JSON.stringify(savedProjects),
-    );
+    saveSavedProjects(savedProjects);
   }, [isStorageLoaded, savedProjects]);
 
   useEffect(() => {
@@ -1033,10 +1019,7 @@ export default function Home() {
 
     setMaterialPriceSettings(nextSettings);
     setMaterialEditorValues(deepCopy(normalizedMaterials));
-    window.localStorage.setItem(
-      MATERIAL_PRICE_STORAGE_KEY,
-      JSON.stringify(nextSettings),
-    );
+    saveMaterialPriceSettings(nextSettings);
     setIsPriceManagerOpen(false);
   };
 
@@ -1048,10 +1031,7 @@ export default function Home() {
 
     setMaterialPriceSettings(nextSettings);
     setMaterialEditorValues(deepCopy(nextSettings.materials));
-    window.localStorage.setItem(
-      MATERIAL_PRICE_STORAGE_KEY,
-      JSON.stringify(nextSettings),
-    );
+    saveMaterialPriceSettings(nextSettings);
   };
 
   const handleAddMaterial = () => {
