@@ -1004,7 +1004,9 @@ export default function Home() {
     setIsPriceManagerOpen(true);
   };
 
-  const handleSaveMaterialPrices = () => {
+  const handleSaveMaterialPrices = async () => {
+    console.log("Material price save handler started");
+
     const updatedAt = new Date().toISOString();
     const normalizedMaterials = normalizeMaterials(materialEditorValues).map(
       (material) => ({
@@ -1019,7 +1021,8 @@ export default function Home() {
 
     setMaterialPriceSettings(nextSettings);
     setMaterialEditorValues(deepCopy(normalizedMaterials));
-    saveMaterialPriceSettings(nextSettings);
+    console.log("Calling saveMaterialPriceSettings", nextSettings);
+    await saveMaterialPriceSettings(nextSettings);
     setIsPriceManagerOpen(false);
   };
 
