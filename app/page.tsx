@@ -1026,6 +1026,12 @@ export default function Home() {
     setIsPriceManagerOpen(false);
   };
 
+  const handleClickMaterialPriceSaveButton = () => {
+    alert("자재 단가 저장 버튼 클릭됨");
+    console.log("price save button clicked");
+    void handleSaveMaterialPrices();
+  };
+
   const handleRestoreDefaultMaterialPrices = () => {
     const nextSettings = {
       ...createDefaultMaterialPriceSettings(),
@@ -2236,7 +2242,7 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={handleSaveMaterialPrices}
+                onClick={handleClickMaterialPriceSaveButton}
                 className="h-9 rounded-md bg-[#2f6a57] px-5 text-sm font-bold text-white transition-colors hover:bg-[#245342]"
               >
                 저장
