@@ -83,6 +83,12 @@ const LUMBER_SPEC_TOTALS_TEMPLATE: Record<LumberSpecKey, LumberSpecTotal> = {
   },
 };
 
+const FIELD_RANGE_WARNING_MESSAGE =
+  "입력값이 일반적인 현장 범위를 초과합니다.\n계속 진행하시겠습니까?";
+const MAX_GENERAL_SPAN_MM = 20_000;
+const MAX_GENERAL_HEIGHT_MM = 5_000;
+const MAX_GENERAL_AREA_M2 = 100;
+
 type SavedEstimate = {
   id: string;
   savedAt: string;
@@ -250,6 +256,12 @@ const toPositiveNumber = (value: string) => {
   const parsed = Number(value);
 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const isPositiveInput = (value: string) => {
+  const parsed = Number(value);
+
+  return value.trim() !== "" && Number.isFinite(parsed) && parsed > 0;
 };
 
 const countLines = (spanMm: number, spacingMm: number) =>
@@ -824,9 +836,12 @@ export default function Home() {
     const wallArea = (width * depthOrHeight) / 1_000_000;
     const lossMultiplier = 1 + Math.max(0, Number(lossRate) || 0) / 100;
     const area = workType === "ceiling" ? convertedCeilingArea : wallArea;
+    const baseSheetQuantity =
+      selectedSheetArea > 0 ? (area / selectedSheetArea) * gypsumLayer : 0;
+    const calculatedSheetQuantity = baseSheetQuantity * lossMultiplier;
     const sheetQuantity =
       selectedSheetArea > 0
-        ? Math.ceil((area / selectedSheetArea) * gypsumLayer * lossMultiplier)
+        ? Math.ceil(calculatedSheetQuantity)
         : 0;
 
     const spacing = joistSpacing;
@@ -857,6 +872,10 @@ export default function Home() {
       hasJoistSpacing && selectedLumberLength > 0
         ? Math.ceil(lumberLength / selectedLumberLength)
         : 0;
+    const baseLumberPieces =
+      hasJoistSpacing && selectedLumberLength > 0
+        ? lumberLength / selectedLumberLength
+        : 0;
     const actualBundles =
       selectedLumberBundleCount > 0 ? lumberPieces / selectedLumberBundleCount : 0;
     const orderBundles = Math.ceil(actualBundles);
@@ -866,8 +885,12 @@ export default function Home() {
 
     return {
       area,
+      baseSheetQuantity,
+      calculatedSheetQuantity,
       sheetQuantity,
       sheetAmount,
+      baseLumberPieces,
+      calculatedLumberPieces: baseLumberPieces,
       lumberPieces,
       actualBundles,
       orderBundles,
@@ -1093,7 +1116,83 @@ export default function Home() {
     );
   };
 
+  const validateEstimateInputBeforeSave = () => {
+    if (workType === "ceiling" && !isPositiveInput(ceilingArea)) {
+      window.alert("천장 면적은 0보다 큰 값으로 입력해주세요.");
+      return false;
+    }
+
+    if (workType === "wall") {
+      if (!isPositiveInput(widthMm)) {
+        window.alert("벽체 가로 길이는 0보다 큰 값으로 입력해주세요.");
+        return false;
+      }
+
+      if (!isPositiveInput(depthOrHeightMm)) {
+        window.alert("벽체 높이는 0보다 큰 값으로 입력해주세요.");
+        return false;
+      }
+    }
+
+    const isOutOfUsualRange =
+      (workType === "wall" &&
+        (result.width > MAX_GENERAL_SPAN_MM ||
+          result.depthOrHeight > MAX_GENERAL_SPAN_MM ||
+          result.depthOrHeight > MAX_GENERAL_HEIGHT_MM)) ||
+      result.area > MAX_GENERAL_AREA_M2;
+
+    return (
+      !isOutOfUsualRange || window.confirm(FIELD_RANGE_WARNING_MESSAGE)
+    );
+  };
+
+  const createKakaoShareText = () => {
+    const sheetLabel = selectedSheetMaterial?.thickness
+      ? `${selectedSheetMaterial.name} ${selectedSheetMaterial.thickness}`
+      : selectedSheetMaterial?.name || "판재";
+    const lumberLabel = selectedLumber?.size
+      ? `${result.selectedLumberName} ${selectedLumber.size}`
+      : result.selectedLumberName || "소송";
+
+    return [
+      "[목공 자재 산출]",
+      "",
+      `현장명: ${siteName.trim() || "현장"}`,
+      `구역명: ${spaceName.trim() || "구역"}`,
+      "",
+      `${sheetLabel} : ${formatNumber(result.sheetQuantity)}장`,
+      `${lumberLabel} : ${formatNumber(result.lumberPieces)}본`,
+      "",
+      `로스율 : ${formatNumber(Math.max(0, Number(lossRate) || 0))}%`,
+    ].join("\n");
+  };
+
+  const handleCopyKakaoText = async () => {
+    const text = createKakaoShareText();
+
+    try {
+      await navigator.clipboard.writeText(text);
+      window.alert("카톡용 텍스트가 복사되었습니다.");
+    } catch {
+      const textarea = document.createElement("textarea");
+
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      window.alert("카톡용 텍스트가 복사되었습니다.");
+    }
+  };
+
   const handleSaveEstimate = () => {
+    if (!validateEstimateInputBeforeSave()) {
+      return;
+    }
+
     const nextEstimate: SavedEstimate = {
       id: createSavedEstimateId(),
       savedAt: new Date().toISOString(),
@@ -1441,7 +1540,8 @@ export default function Home() {
                       천장 면적
                       <input
                         type="number"
-                        min="0"
+                        min="1"
+                        required
                         value={ceilingArea}
                         onChange={(event) => setCeilingArea(event.target.value)}
                         className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
@@ -1495,7 +1595,8 @@ export default function Home() {
                       벽체 가로 길이(mm)
                       <input
                         type="number"
-                        min="0"
+                        min="1"
+                        required
                         value={widthMm}
                         onChange={(event) => setWidthMm(event.target.value)}
                         className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
@@ -1505,7 +1606,8 @@ export default function Home() {
                       벽체 높이(mm)
                       <input
                         type="number"
-                        min="0"
+                        min="1"
+                        required
                         value={depthOrHeightMm}
                         onChange={(event) => setDepthOrHeightMm(event.target.value)}
                         className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
@@ -1713,6 +1815,33 @@ export default function Home() {
                 />
               </dl>
 
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <CalculationProcess
+                  title={selectedSheetMaterial?.name ?? "판재"}
+                  baseLabel="기본수량"
+                  baseValue={`${formatNumber(result.baseSheetQuantity)}장`}
+                  lossRateText={`${formatNumber(
+                    Math.max(0, Number(lossRate) || 0),
+                  )}%`}
+                  calculatedValue={`${formatNumber(
+                    result.calculatedSheetQuantity,
+                  )}장`}
+                  finalLabel="최종발주"
+                  finalValue={`${formatNumber(result.sheetQuantity)}장`}
+                />
+                <CalculationProcess
+                  title={result.selectedLumberName || "소송"}
+                  baseLabel="기본수량"
+                  baseValue={`${formatNumber(result.baseLumberPieces)}본`}
+                  lossRateText="소송 계산 미적용"
+                  calculatedValue={`${formatNumber(
+                    result.calculatedLumberPieces,
+                  )}본`}
+                  finalLabel="최종본수"
+                  finalValue={`${formatNumber(result.lumberPieces)}본`}
+                />
+              </div>
+
               <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-stretch">
                 <div className="rounded-md bg-[#f2d16b] px-3 py-2 text-[#1d1d1b]">
                   <dt className="text-xs font-bold">총 자재 금액</dt>
@@ -1728,6 +1857,13 @@ export default function Home() {
                   저장
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => void handleCopyKakaoText()}
+                className="mt-2 h-10 w-full rounded-md border border-white/20 px-4 text-sm font-bold text-white transition-colors hover:bg-white/10"
+              >
+                카톡용 복사
+              </button>
             </div>
           </section>
 
@@ -2260,6 +2396,36 @@ function ResultRow({ label, value }: { label: string; value: string }) {
     <div className="flex min-h-8 items-center justify-between gap-3 rounded-md bg-white/7 px-2.5 py-1.5">
       <dt className="text-xs text-white/62">{label}</dt>
       <dd className="min-w-0 truncate text-right text-sm font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+function CalculationProcess({
+  title,
+  baseLabel,
+  baseValue,
+  lossRateText,
+  calculatedValue,
+  finalLabel,
+  finalValue,
+}: {
+  title: string;
+  baseLabel: string;
+  baseValue: string;
+  lossRateText: string;
+  calculatedValue: string;
+  finalLabel: string;
+  finalValue: string;
+}) {
+  return (
+    <div className="rounded-md bg-white/7 p-2">
+      <p className="text-sm font-bold text-[#94d0bb]">{title}</p>
+      <dl className="mt-1 grid gap-1">
+        <ResultRow label={baseLabel} value={baseValue} />
+        <ResultRow label="로스율" value={lossRateText} />
+        <ResultRow label="계산수량" value={calculatedValue} />
+        <ResultRow label={finalLabel} value={finalValue} />
+      </dl>
     </div>
   );
 }
