@@ -1147,23 +1147,45 @@ export default function Home() {
   };
 
   const createKakaoShareText = () => {
-    const sheetLabel = selectedSheetMaterial?.thickness
-      ? `${selectedSheetMaterial.name} ${selectedSheetMaterial.thickness}`
-      : selectedSheetMaterial?.name || "판재";
-    const lumberLabel = selectedLumber?.size
-      ? `${result.selectedLumberName} ${selectedLumber.size}`
-      : result.selectedLumberName || "소송";
+    const sheetSpec = [
+      selectedSheetMaterial?.size,
+      selectedSheetMaterial?.thickness,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+    const orderLines = [
+      {
+        name: selectedSheetMaterial?.name || "판재",
+        spec: sheetSpec || "-",
+        quantity: result.sheetQuantity,
+        unit: "장",
+        note: "",
+      },
+      {
+        name: result.selectedLumberName || "소송",
+        spec: selectedLumber?.size || "-",
+        quantity: result.lumberPieces,
+        unit: "본",
+        note: "",
+      },
+    ];
 
     return [
-      "[목공 자재 산출]",
+      "[목공 자재 발주]",
       "",
       `현장명: ${siteName.trim() || "현장"}`,
       `구역명: ${spaceName.trim() || "구역"}`,
       "",
-      `${sheetLabel} : ${formatNumber(result.sheetQuantity)}장`,
-      `${lumberLabel} : ${formatNumber(result.lumberPieces)}본`,
-      "",
-      `로스율 : ${formatNumber(Math.max(0, Number(lossRate) || 0))}%`,
+      ...orderLines.flatMap((line, index) =>
+        [
+          index > 0 ? "" : null,
+          `자재명: ${line.name}`,
+          `규격: ${line.spec}`,
+          `수량: ${formatNumber(line.quantity)}`,
+          `단위: ${line.unit}`,
+          `비고: ${line.note}`,
+        ].filter((value): value is string => value !== null),
+      ),
     ].join("\n");
   };
 
@@ -1862,7 +1884,7 @@ export default function Home() {
                 onClick={() => void handleCopyKakaoText()}
                 className="mt-2 h-10 w-full rounded-md border border-white/20 px-4 text-sm font-bold text-white transition-colors hover:bg-white/10"
               >
-                카톡용 복사
+                거래처 발주용 복사
               </button>
             </div>
           </section>
