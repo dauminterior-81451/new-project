@@ -5,13 +5,16 @@ export type MaterialCategory =
   | "lumber"
   | "supply";
 
-export type MaterialUnit = "장" | "단" | "개" | "박스";
+export type MaterialUnit = "장" | "단" | "개" | "본" | "박스";
 
 export type Material = {
   id: string;
   category: MaterialCategory;
   name: string;
   size: string;
+  width?: number;
+  height?: number;
+  length?: number;
   thickness?: string;
   unit: MaterialUnit;
   bundleCount?: number;
@@ -246,8 +249,12 @@ export const materials: Material[] = [
     id: "flat-molding",
     category: "supply",
     name: "평몰딩",
-    size: "1개",
-    unit: "개",
+    size: "30x9x2400",
+    width: 30,
+    height: 9,
+    length: 2400,
+    thickness: "9T",
+    unit: "본",
     price: 2200,
   },
 ];

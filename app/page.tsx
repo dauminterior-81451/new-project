@@ -288,6 +288,23 @@ const createEmptyLumberSpecTotals = () => ({
 const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+const FLAT_MOLDING_SPEC = {
+  size: "30x9x2400",
+  width: 30,
+  height: 9,
+  length: 2400,
+  thickness: "9T",
+  unit: "본",
+} as const;
+
+const isFlatMoldingMaterial = (material: Partial<ManagedMaterial>) =>
+  material.id === "flat-molding" || material.name?.trim() === "평몰딩";
+
+const getPositiveFiniteNumber = (value: number | undefined) =>
+  typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+
 const parseSizeParts = (size: string) => {
   const [widthText = "", heightText = "", lengthText = ""] = size.split("x");
   const width = Number(widthText);
@@ -301,9 +318,20 @@ const parseSizeParts = (size: string) => {
   };
 };
 
+const formatSpecNumber = (value: number | undefined) => {
+  const safeValue = getPositiveFiniteNumber(value);
+
+  return safeValue === undefined ? null : formatNumber(safeValue);
+};
+
+const getSafeMaterialSizeText = (size: string) =>
+  size.includes("NaN") ? "" : size.trim();
+
 const buildMaterialSize = (material: ManagedMaterial) => {
+  const safeSize = getSafeMaterialSizeText(material.size);
+
   if (material.category === "supply") {
-    return material.size.trim() || material.unit || "1개";
+    return safeSize || material.unit || "1개";
   }
 
   if (material.category === "lumber") {
@@ -313,29 +341,48 @@ const buildMaterialSize = (material: ManagedMaterial) => {
 
     return width > 0 && height > 0 && length > 0
       ? `${width}x${height}x${length}`
-      : material.size.trim();
+      : safeSize;
   }
 
   const width = material.width ?? 0;
   const height = material.height ?? 0;
 
-  return width > 0 && height > 0 ? `${width}x${height}` : material.size.trim();
+  return width > 0 && height > 0 ? `${width}x${height}` : safeSize;
 };
 
 const getMaterialSpecDisplay = (material: ManagedMaterial) => {
+  const widthText = formatSpecNumber(material.width);
+  const heightText = formatSpecNumber(material.height);
+  const lengthText = formatSpecNumber(material.length);
+  const safeSize = getSafeMaterialSizeText(material.size);
+  const safeThickness =
+    material.thickness && !material.thickness.includes("NaN")
+      ? material.thickness
+      : "";
+
   if (material.category === "lumber") {
     const bundleCount = material.piecesPerBundle ?? material.bundleCount;
 
     return bundleCount
-      ? `${material.size} / 1단 ${formatNumber(bundleCount)}본`
-      : material.size;
+      ? `${safeSize} / 1단 ${formatNumber(bundleCount)}본`
+      : safeSize;
   }
 
-  if (material.thickness) {
-    return `${material.size} / ${material.thickness}`;
+  if (material.category === "supply") {
+    if (widthText && safeThickness && lengthText) {
+      return `${widthText}${safeThickness} / ${lengthText}mm`;
+    }
+
+    if (widthText && heightText && lengthText) {
+      return `${widthText}x${heightText} / ${lengthText}mm`;
+    }
   }
 
-  return material.size;
+  if (safeThickness) {
+    return safeSize ? `${safeSize} / ${safeThickness}` : safeThickness;
+  }
+
+  return safeSize || "-";
 };
 
 const normalizeMaterial = (
@@ -343,21 +390,34 @@ const normalizeMaterial = (
   fallbackIndex: number,
 ): ManagedMaterial => {
   const category = material.category ?? "board";
-  const size = typeof material.size === "string" ? material.size : "";
+  const shouldUseFlatMoldingSpec = isFlatMoldingMaterial(material);
+  const sourceSize = typeof material.size === "string" ? material.size : "";
+  const size =
+    shouldUseFlatMoldingSpec && (!sourceSize.trim() || sourceSize.includes("NaN"))
+      ? FLAT_MOLDING_SPEC.size
+      : sourceSize;
   const sizeParts = parseSizeParts(size);
   const bundleCount = material.bundleCount ?? material.piecesPerBundle;
   const width =
     typeof material.width === "number" && Number.isFinite(material.width)
       ? material.width
-      : sizeParts.width;
+      : sizeParts.width ??
+        (shouldUseFlatMoldingSpec ? FLAT_MOLDING_SPEC.width : undefined);
   const height =
     typeof material.height === "number" && Number.isFinite(material.height)
       ? material.height
-      : sizeParts.height;
+      : sizeParts.height ??
+        (shouldUseFlatMoldingSpec ? FLAT_MOLDING_SPEC.height : undefined);
   const length =
     typeof material.length === "number" && Number.isFinite(material.length)
       ? material.length
-      : sizeParts.length;
+      : sizeParts.length ??
+        (shouldUseFlatMoldingSpec ? FLAT_MOLDING_SPEC.length : undefined);
+  const thickness =
+    shouldUseFlatMoldingSpec &&
+    (!material.thickness || material.thickness.includes("NaN"))
+      ? FLAT_MOLDING_SPEC.thickness
+      : material.thickness ?? "";
   const normalizedBundleCount =
     typeof bundleCount === "number" && Number.isFinite(bundleCount)
       ? bundleCount
@@ -370,8 +430,10 @@ const normalizeMaterial = (
     width,
     height,
     length,
-    thickness: material.thickness ?? "",
-    unit: material.unit || (category === "supply" ? "개" : "장"),
+    thickness,
+    unit: shouldUseFlatMoldingSpec
+      ? FLAT_MOLDING_SPEC.unit
+      : material.unit || (category === "supply" ? "개" : "장"),
     bundleCount: normalizedBundleCount,
     piecesPerBundle: normalizedBundleCount,
     price:
