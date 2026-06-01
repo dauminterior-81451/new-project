@@ -297,7 +297,7 @@ const FLAT_MOLDING_SPEC = {
   height: 9,
   length: 2400,
   thickness: "9T",
-  unit: "본",
+  unit: "개",
 } as const;
 
 const isFlatMoldingMaterial = (material: Partial<ManagedMaterial>) =>
@@ -575,6 +575,10 @@ const isFlatMoldingEstimate = (
   (estimate.sheetMaterialSnapshot
     ? isFlatMoldingMaterial(estimate.sheetMaterialSnapshot)
     : false);
+
+const getFlatMoldingEstimateLength = (
+  estimate: Pick<SavedEstimate, "flatMoldingLengthMm">,
+) => estimate.flatMoldingLengthMm ?? 0;
 
 const isSheetCategoryMaterial = (
   material: ManagedMaterial,
@@ -1035,6 +1039,10 @@ export default function Home() {
     );
     const byLumberSpec = savedEstimates.reduce<Record<LumberSpecKey, LumberSpecTotal>>(
       (accumulator, estimate) => {
+        if (isFlatMoldingEstimate(estimate)) {
+          return accumulator;
+        }
+
         const specId = getLumberSpecId(estimate);
         const specTotal = accumulator[specId];
 
@@ -1049,15 +1057,25 @@ export default function Home() {
 
     return {
       totalSheetQuantity: savedEstimates.reduce(
-        (sum, estimate) => sum + estimate.sheetQuantity,
+        (sum, estimate) =>
+          isFlatMoldingEstimate(estimate) ? sum : sum + estimate.sheetQuantity,
+        0,
+      ),
+      totalFlatMoldingQuantity: savedEstimates.reduce(
+        (sum, estimate) =>
+          isFlatMoldingEstimate(estimate) ? sum + estimate.sheetQuantity : sum,
         0,
       ),
       totalLumberPieces: savedEstimates.reduce(
-        (sum, estimate) => sum + estimate.lumberPieces,
+        (sum, estimate) =>
+          isFlatMoldingEstimate(estimate) ? sum : sum + estimate.lumberPieces,
         0,
       ),
       totalLumberOrderBundles: savedEstimates.reduce(
-        (sum, estimate) => sum + estimate.lumberOrderBundles,
+        (sum, estimate) =>
+          isFlatMoldingEstimate(estimate)
+            ? sum
+            : sum + estimate.lumberOrderBundles,
         0,
       ),
       totalSheetAmount: savedEstimates.reduce(
@@ -1275,7 +1293,7 @@ export default function Home() {
         `자재명: ${selectedSheetMaterial?.name || "평몰딩"}`,
         `규격: ${moldingSpec}`,
         `수량: ${formatNumber(result.sheetQuantity)}`,
-        `단위: 본`,
+        `단위: 개`,
         `비고: 입력 길이 ${formatNumber(result.flatMoldingLength)}mm`,
       ].join("\n");
     }
@@ -1377,7 +1395,7 @@ export default function Home() {
           ? toPositiveNumber(ceilingLumberLengthMm) || undefined
           : undefined,
       flatMoldingLengthMm: isFlatMoldingSelected
-        ? result.flatMoldingLength
+        ? toPositiveNumber(flatMoldingLengthMm)
         : undefined,
       lumberCalculationMethod: result.lumberCalculationMethod,
       joistSpacing,
@@ -1715,6 +1733,9 @@ export default function Home() {
                       onChange={(event) =>
                         setFlatMoldingLengthMm(event.target.value)
                       }
+                      onInput={(event) =>
+                        setFlatMoldingLengthMm(event.currentTarget.value)
+                      }
                       className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
                     />
                   </label>
@@ -1931,7 +1952,7 @@ export default function Home() {
                     />
                     <ResultRow
                       label="기본수량"
-                      value={`${formatNumber(result.baseSheetQuantity)}본`}
+                      value={`${formatNumber(result.baseSheetQuantity)}개`}
                     />
                     <ResultRow
                       label="로스율"
@@ -1941,11 +1962,11 @@ export default function Home() {
                     />
                     <ResultRow
                       label="계산수량"
-                      value={`${formatNumber(result.calculatedSheetQuantity)}본`}
+                      value={`${formatNumber(result.calculatedSheetQuantity)}개`}
                     />
                     <ResultRow
                       label="최종발주"
-                      value={`${formatNumber(result.sheetQuantity)}본`}
+                      value={`${formatNumber(result.sheetQuantity)}개`}
                     />
                     <ResultRow
                       label="금액"
@@ -2151,7 +2172,7 @@ export default function Home() {
                             <SummaryItem
                               label="입력 길이"
                               value={`${formatNumber(
-                                estimate.flatMoldingLengthMm ?? 0,
+                                getFlatMoldingEstimateLength(estimate),
                               )}mm`}
                             />
                             <SummaryItem
@@ -2161,9 +2182,9 @@ export default function Home() {
                             <SummaryItem
                               label="기본수량"
                               value={`${formatNumber(
-                                ((estimate.flatMoldingLengthMm ?? 0) /
+                                (getFlatMoldingEstimateLength(estimate) /
                                   FLAT_MOLDING_SPEC.length),
-                              )}본`}
+                              )}개`}
                             />
                             <SummaryItem
                               label="로스율"
@@ -2174,14 +2195,14 @@ export default function Home() {
                             <SummaryItem
                               label="계산수량"
                               value={`${formatNumber(
-                                ((estimate.flatMoldingLengthMm ?? 0) /
+                                (getFlatMoldingEstimateLength(estimate) /
                                   FLAT_MOLDING_SPEC.length) *
                                   (1 + (estimate.lossRateSnapshot ?? 0) / 100),
-                              )}본`}
+                              )}개`}
                             />
                             <SummaryItem
                               label="최종발주"
-                              value={`${formatNumber(estimate.sheetQuantity)}본`}
+                              value={`${formatNumber(estimate.sheetQuantity)}개`}
                             />
                             <SummaryItem
                               label="금액"
@@ -2294,6 +2315,14 @@ export default function Home() {
                   label="총 판재 수량"
                   value={`${formatNumber(totalSummary.totalSheetQuantity)}장`}
                 />
+                {totalSummary.totalFlatMoldingQuantity > 0 && (
+                  <ResultRow
+                    label="평몰딩 수량"
+                    value={`${formatNumber(
+                      totalSummary.totalFlatMoldingQuantity,
+                    )}개`}
+                  />
+                )}
                 <ResultRow
                   label="소송 본수"
                   value={`${formatNumber(totalSummary.totalLumberPieces)}본`}
@@ -2357,7 +2386,8 @@ export default function Home() {
                             {materialName}
                           </span>
                           <span className="font-semibold">
-                            {formatNumber(quantity)}장
+                            {formatNumber(quantity)}
+                            {materialName.trim() === "평몰딩" ? "개" : "장"}
                           </span>
                         </div>
                       ),
