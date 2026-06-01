@@ -103,6 +103,7 @@ type SavedEstimate = {
   ceilingAreaUnit?: CeilingAreaUnit;
   convertedAreaM2?: number;
   ceilingLumberLengthMm?: number;
+  flatMoldingLengthMm?: number;
   lumberCalculationMethod?: "cad-total-length" | "area-estimate" | "wall-layout";
   joistSpacing: JoistSpacing;
   sheetCategory: SheetMaterialCategory;
@@ -290,7 +291,7 @@ const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const FLAT_MOLDING_SPEC = {
-  displaySize: "30 9T / 2400mm",
+  displaySize: "309T / 2400mm",
   size: "30x9x2400",
   width: 30,
   height: 9,
@@ -560,6 +561,20 @@ const getEstimateSheetMaterialName = (
 const getEstimateAreaM2 = (estimate: SavedEstimate) =>
   estimate.convertedAreaM2 ??
   (estimate.widthMm * estimate.depthOrHeightMm) / 1_000_000;
+
+const isFlatMoldingEstimate = (
+  estimate: Pick<
+    SavedEstimate,
+    "sheetMaterialId" | "sheetMaterialName" | "sheetMaterialSnapshot"
+  >,
+) =>
+  isFlatMoldingMaterial({
+    id: estimate.sheetMaterialId,
+    name: estimate.sheetMaterialName,
+  }) ||
+  (estimate.sheetMaterialSnapshot
+    ? isFlatMoldingMaterial(estimate.sheetMaterialSnapshot)
+    : false);
 
 const isSheetCategoryMaterial = (
   material: ManagedMaterial,
@@ -1361,6 +1376,9 @@ export default function Home() {
         !isFlatMoldingSelected && workType === "ceiling"
           ? toPositiveNumber(ceilingLumberLengthMm) || undefined
           : undefined,
+      flatMoldingLengthMm: isFlatMoldingSelected
+        ? result.flatMoldingLength
+        : undefined,
       lumberCalculationMethod: result.lumberCalculationMethod,
       joistSpacing,
       sheetCategory,
@@ -2128,44 +2146,94 @@ export default function Home() {
                         </button>
                       </div>
                       <dl className="mt-2 grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
-                        <SummaryItem
-                          label="필요 장수"
-                          value={`${formatNumber(estimate.sheetQuantity)}장`}
-                        />
-                        <SummaryItem
-                          label="소송 규격"
-                          value={
-                            LUMBER_SPEC_TOTALS_TEMPLATE[
-                              getLumberSpecId(estimate)
-                            ].name
-                          }
-                        />
-                        <SummaryItem
-                          label="필요 본수"
-                          value={`${formatNumber(estimate.lumberPieces)}본`}
-                        />
-                        <SummaryItem
-                          label="소송 발주"
-                          value={`${formatNumber(
-                            estimate.lumberOrderBundles,
-                          )}단`}
-                        />
-                        <SummaryItem
-                          label="총 금액"
-                          value={formatCurrency(estimate.totalAmount)}
-                        />
-                        <SummaryItem
-                          label={estimate.workType === "ceiling" ? "면적" : "규격"}
-                          value={
-                            estimate.workType === "ceiling"
-                              ? `${formatNumber(
-                                  estimate.convertedAreaM2 ?? 0,
-                                )}㎡`
-                              : `${formatNumber(
-                                  estimate.widthMm,
-                                )}x${formatNumber(estimate.depthOrHeightMm)}mm`
-                          }
-                        />
+                        {isFlatMoldingEstimate(estimate) ? (
+                          <>
+                            <SummaryItem
+                              label="입력 길이"
+                              value={`${formatNumber(
+                                estimate.flatMoldingLengthMm ?? 0,
+                              )}mm`}
+                            />
+                            <SummaryItem
+                              label="규격"
+                              value={FLAT_MOLDING_SPEC.displaySize}
+                            />
+                            <SummaryItem
+                              label="기본수량"
+                              value={`${formatNumber(
+                                ((estimate.flatMoldingLengthMm ?? 0) /
+                                  FLAT_MOLDING_SPEC.length),
+                              )}본`}
+                            />
+                            <SummaryItem
+                              label="로스율"
+                              value={`${formatNumber(
+                                estimate.lossRateSnapshot ?? 0,
+                              )}%`}
+                            />
+                            <SummaryItem
+                              label="계산수량"
+                              value={`${formatNumber(
+                                ((estimate.flatMoldingLengthMm ?? 0) /
+                                  FLAT_MOLDING_SPEC.length) *
+                                  (1 + (estimate.lossRateSnapshot ?? 0) / 100),
+                              )}본`}
+                            />
+                            <SummaryItem
+                              label="최종발주"
+                              value={`${formatNumber(estimate.sheetQuantity)}본`}
+                            />
+                            <SummaryItem
+                              label="금액"
+                              value={formatCurrency(estimate.totalAmount)}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <SummaryItem
+                              label="필요 장수"
+                              value={`${formatNumber(estimate.sheetQuantity)}장`}
+                            />
+                            <SummaryItem
+                              label="소송 규격"
+                              value={
+                                LUMBER_SPEC_TOTALS_TEMPLATE[
+                                  getLumberSpecId(estimate)
+                                ].name
+                              }
+                            />
+                            <SummaryItem
+                              label="필요 본수"
+                              value={`${formatNumber(estimate.lumberPieces)}본`}
+                            />
+                            <SummaryItem
+                              label="소송 발주"
+                              value={`${formatNumber(
+                                estimate.lumberOrderBundles,
+                              )}단`}
+                            />
+                            <SummaryItem
+                              label="총 금액"
+                              value={formatCurrency(estimate.totalAmount)}
+                            />
+                            <SummaryItem
+                              label={
+                                estimate.workType === "ceiling" ? "면적" : "규격"
+                              }
+                              value={
+                                estimate.workType === "ceiling"
+                                  ? `${formatNumber(
+                                      estimate.convertedAreaM2 ?? 0,
+                                    )}㎡`
+                                  : `${formatNumber(
+                                      estimate.widthMm,
+                                    )}x${formatNumber(
+                                      estimate.depthOrHeightMm,
+                                    )}mm`
+                              }
+                            />
+                          </>
+                        )}
                       </dl>
                     </article>
                   ))
