@@ -103,7 +103,10 @@ type SavedEstimate = {
   ceilingAreaUnit?: CeilingAreaUnit;
   convertedAreaM2?: number;
   ceilingLumberLengthMm?: number;
+  flatMoldingLength?: number;
   flatMoldingLengthMm?: number;
+  baseSheetQuantity?: number;
+  calculatedSheetQuantity?: number;
   lumberCalculationMethod?: "cad-total-length" | "area-estimate" | "wall-layout";
   joistSpacing: JoistSpacing;
   sheetCategory: SheetMaterialCategory;
@@ -577,8 +580,31 @@ const isFlatMoldingEstimate = (
     : false);
 
 const getFlatMoldingEstimateLength = (
-  estimate: Pick<SavedEstimate, "flatMoldingLengthMm">,
-) => estimate.flatMoldingLengthMm ?? 0;
+  estimate: Pick<SavedEstimate, "flatMoldingLength" | "flatMoldingLengthMm">,
+) => estimate.flatMoldingLengthMm ?? estimate.flatMoldingLength ?? 0;
+
+const getFlatMoldingEstimateBaseQuantity = (
+  estimate: Pick<
+    SavedEstimate,
+    "baseSheetQuantity" | "flatMoldingLength" | "flatMoldingLengthMm"
+  >,
+) =>
+  estimate.baseSheetQuantity ??
+  getFlatMoldingEstimateLength(estimate) / FLAT_MOLDING_SPEC.length;
+
+const getFlatMoldingEstimateCalculatedQuantity = (
+  estimate: Pick<
+    SavedEstimate,
+    | "baseSheetQuantity"
+    | "calculatedSheetQuantity"
+    | "flatMoldingLength"
+    | "flatMoldingLengthMm"
+    | "lossRateSnapshot"
+  >,
+) =>
+  estimate.calculatedSheetQuantity ??
+  getFlatMoldingEstimateBaseQuantity(estimate) *
+    (1 + (estimate.lossRateSnapshot ?? 0) / 100);
 
 const isSheetCategoryMaterial = (
   material: ManagedMaterial,
@@ -892,6 +918,7 @@ export default function Home() {
   >(() => createDefaultManagedMaterials());
   const [isPriceManagerOpen, setIsPriceManagerOpen] = useState(false);
   const [isStorageLoaded, setIsStorageLoaded] = useState(false);
+  const flatMoldingLengthInputRef = useRef<HTMLInputElement | null>(null);
   const projectImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const pricedMaterials = materialPriceSettings.materials;
@@ -930,7 +957,9 @@ export default function Home() {
       ceilingAreaUnit === "mm2" ? ceilingAreaInput / 1_000_000 : ceilingAreaInput;
     const wallArea = (width * depthOrHeight) / 1_000_000;
     const lossMultiplier = 1 + Math.max(0, Number(lossRate) || 0) / 100;
-    const flatMoldingLength = toPositiveNumber(flatMoldingLengthMm);
+    const flatMoldingLength = toPositiveNumber(
+      flatMoldingLengthInputRef.current?.value ?? flatMoldingLengthMm,
+    );
     const flatMoldingBaseQuantity =
       FLAT_MOLDING_SPEC.length > 0
         ? flatMoldingLength / FLAT_MOLDING_SPEC.length
@@ -1394,8 +1423,17 @@ export default function Home() {
         !isFlatMoldingSelected && workType === "ceiling"
           ? toPositiveNumber(ceilingLumberLengthMm) || undefined
           : undefined,
+      flatMoldingLength: isFlatMoldingSelected
+        ? result.flatMoldingLength
+        : undefined,
       flatMoldingLengthMm: isFlatMoldingSelected
-        ? toPositiveNumber(flatMoldingLengthMm)
+        ? result.flatMoldingLength
+        : undefined,
+      baseSheetQuantity: isFlatMoldingSelected
+        ? result.baseSheetQuantity
+        : undefined,
+      calculatedSheetQuantity: isFlatMoldingSelected
+        ? result.calculatedSheetQuantity
         : undefined,
       lumberCalculationMethod: result.lumberCalculationMethod,
       joistSpacing,
@@ -1726,6 +1764,7 @@ export default function Home() {
                   <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
                     필요 총 길이(mm)
                     <input
+                      ref={flatMoldingLengthInputRef}
                       type="number"
                       min="1"
                       required
@@ -2182,8 +2221,7 @@ export default function Home() {
                             <SummaryItem
                               label="기본수량"
                               value={`${formatNumber(
-                                (getFlatMoldingEstimateLength(estimate) /
-                                  FLAT_MOLDING_SPEC.length),
+                                getFlatMoldingEstimateBaseQuantity(estimate),
                               )}개`}
                             />
                             <SummaryItem
@@ -2195,9 +2233,7 @@ export default function Home() {
                             <SummaryItem
                               label="계산수량"
                               value={`${formatNumber(
-                                (getFlatMoldingEstimateLength(estimate) /
-                                  FLAT_MOLDING_SPEC.length) *
-                                  (1 + (estimate.lossRateSnapshot ?? 0) / 100),
+                                getFlatMoldingEstimateCalculatedQuantity(estimate),
                               )}개`}
                             />
                             <SummaryItem
