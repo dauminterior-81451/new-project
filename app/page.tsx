@@ -158,6 +158,10 @@ type ProjectZoneSnapshot = {
   inputArea?: number;
   areaUnit?: CeilingAreaUnit;
   convertedAreaM2: number;
+  flatMoldingLength?: number;
+  flatMoldingLengthMm?: number;
+  baseSheetQuantity?: number;
+  calculatedSheetQuantity?: number;
   sheetQuantity: number;
   sheetAmount: number;
   materialCategory: SheetMaterialCategory;
@@ -606,6 +610,41 @@ const getFlatMoldingEstimateCalculatedQuantity = (
   getFlatMoldingEstimateBaseQuantity(estimate) *
     (1 + (estimate.lossRateSnapshot ?? 0) / 100);
 
+const isFlatMoldingZoneSnapshot = (
+  zone: Pick<ProjectZoneSnapshot, "sheetMaterialId" | "sheetMaterialName">,
+) =>
+  isFlatMoldingMaterial({
+    id: zone.sheetMaterialId,
+    name: zone.sheetMaterialName,
+  });
+
+const getFlatMoldingZoneLength = (
+  zone: Pick<ProjectZoneSnapshot, "flatMoldingLength" | "flatMoldingLengthMm">,
+) => zone.flatMoldingLengthMm ?? zone.flatMoldingLength ?? 0;
+
+const getFlatMoldingZoneBaseQuantity = (
+  zone: Pick<
+    ProjectZoneSnapshot,
+    "baseSheetQuantity" | "flatMoldingLength" | "flatMoldingLengthMm"
+  >,
+) =>
+  zone.baseSheetQuantity ??
+  getFlatMoldingZoneLength(zone) / FLAT_MOLDING_SPEC.length;
+
+const getFlatMoldingZoneCalculatedQuantity = (
+  zone: Pick<
+    ProjectZoneSnapshot,
+    | "baseSheetQuantity"
+    | "calculatedSheetQuantity"
+    | "flatMoldingLength"
+    | "flatMoldingLengthMm"
+    | "lossRateSnapshot"
+  >,
+) =>
+  zone.calculatedSheetQuantity ??
+  getFlatMoldingZoneBaseQuantity(zone) *
+    (1 + (zone.lossRateSnapshot ?? 0) / 100);
+
 const isSheetCategoryMaterial = (
   material: ManagedMaterial,
   category: SheetMaterialCategory,
@@ -646,6 +685,10 @@ const createZoneSnapshot = (estimate: SavedEstimate): ProjectZoneSnapshot => {
     inputArea: estimate.workType === "ceiling" ? estimate.ceilingArea : undefined,
     areaUnit: estimate.workType === "ceiling" ? estimate.ceilingAreaUnit : undefined,
     convertedAreaM2: getEstimateAreaM2(estimate),
+    flatMoldingLength: estimate.flatMoldingLength,
+    flatMoldingLengthMm: estimate.flatMoldingLengthMm,
+    baseSheetQuantity: estimate.baseSheetQuantity,
+    calculatedSheetQuantity: estimate.calculatedSheetQuantity,
     sheetQuantity: estimate.sheetQuantity,
     sheetAmount: estimate.sheetAmount,
     materialCategory: estimate.sheetCategory,
@@ -2852,38 +2895,80 @@ function ProjectDetail({
                   </p>
                 </div>
                 <dl className="grid grid-cols-2 gap-1 md:grid-cols-3">
-                  <SummaryItem label="자재명" value={zone.sheetMaterialName} />
-                  <SummaryItem
-                    label="자재 사이즈"
-                    value={`${formatNumber(zone.sheetMaterialWidthMm)}x${formatNumber(
-                      zone.sheetMaterialHeightMm,
-                    )}mm`}
-                  />
-                  <SummaryItem
-                    label="필요 장수"
-                    value={`${formatNumber(zone.sheetQuantity)}장`}
-                  />
-                  <SummaryItem
-                    label="판재 금액"
-                    value={formatCurrency(zone.sheetAmount)}
-                  />
-                  <SummaryItem label="소송 규격" value={zone.lumberSpecName} />
-                  <SummaryItem
-                    label="필요 본수"
-                    value={`${formatNumber(zone.lumberPieces)}본`}
-                  />
-                  <SummaryItem
-                    label="발주 단수"
-                    value={`${formatNumber(zone.lumberOrderBundles)}단`}
-                  />
-                  <SummaryItem
-                    label="소송 금액"
-                    value={formatCurrency(zone.lumberAmount)}
-                  />
-                  <SummaryItem
-                    label="구역 총액"
-                    value={formatCurrency(zone.totalAmount)}
-                  />
+                  {isFlatMoldingZoneSnapshot(zone) ? (
+                    <>
+                      <SummaryItem label="자재명" value={zone.sheetMaterialName} />
+                      <SummaryItem
+                        label="규격"
+                        value={FLAT_MOLDING_SPEC.displaySize}
+                      />
+                      <SummaryItem
+                        label="입력 길이"
+                        value={`${formatNumber(
+                          getFlatMoldingZoneLength(zone),
+                        )}mm`}
+                      />
+                      <SummaryItem
+                        label="기본수량"
+                        value={`${formatNumber(
+                          getFlatMoldingZoneBaseQuantity(zone),
+                        )}개`}
+                      />
+                      <SummaryItem
+                        label="로스율"
+                        value={`${formatNumber(zone.lossRateSnapshot)}%`}
+                      />
+                      <SummaryItem
+                        label="계산수량"
+                        value={`${formatNumber(
+                          getFlatMoldingZoneCalculatedQuantity(zone),
+                        )}개`}
+                      />
+                      <SummaryItem
+                        label="최종발주"
+                        value={`${formatNumber(zone.sheetQuantity)}개`}
+                      />
+                      <SummaryItem
+                        label="금액"
+                        value={formatCurrency(zone.totalAmount)}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <SummaryItem label="자재명" value={zone.sheetMaterialName} />
+                      <SummaryItem
+                        label="자재 사이즈"
+                        value={`${formatNumber(zone.sheetMaterialWidthMm)}x${formatNumber(
+                          zone.sheetMaterialHeightMm,
+                        )}mm`}
+                      />
+                      <SummaryItem
+                        label="필요 장수"
+                        value={`${formatNumber(zone.sheetQuantity)}장`}
+                      />
+                      <SummaryItem
+                        label="판재 금액"
+                        value={formatCurrency(zone.sheetAmount)}
+                      />
+                      <SummaryItem label="소송 규격" value={zone.lumberSpecName} />
+                      <SummaryItem
+                        label="필요 본수"
+                        value={`${formatNumber(zone.lumberPieces)}본`}
+                      />
+                      <SummaryItem
+                        label="발주 단수"
+                        value={`${formatNumber(zone.lumberOrderBundles)}단`}
+                      />
+                      <SummaryItem
+                        label="소송 금액"
+                        value={formatCurrency(zone.lumberAmount)}
+                      />
+                      <SummaryItem
+                        label="구역 총액"
+                        value={formatCurrency(zone.totalAmount)}
+                      />
+                    </>
+                  )}
                 </dl>
               </div>
             ))}
