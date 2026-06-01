@@ -1699,33 +1699,53 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-          <section className="grid gap-3">
-            <div className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs font-semibold">
-                  현장명
-                  <input
-                    value={siteName}
-                    onChange={(event) => setSiteName(event.currentTarget.value)}
-                    onInput={(event) => setSiteName(event.currentTarget.value)}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-semibold">
-                  구역명
-                  <input
-                    value={spaceName}
-                    onChange={(event) => setSpaceName(event.currentTarget.value)}
-                    onInput={(event) => setSpaceName(event.currentTarget.value)}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
-                  />
-                </label>
+        <section className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
+                Site
+              </p>
+              <h2 className="text-lg font-semibold">현장 정보</h2>
+            </div>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <label className="grid gap-1 text-xs font-semibold">
+              현장명
+              <input
+                value={siteName}
+                onChange={(event) => setSiteName(event.currentTarget.value)}
+                onInput={(event) => setSiteName(event.currentTarget.value)}
+                autoComplete="off"
+                spellCheck={false}
+                className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold">
+              구역명
+              <input
+                value={spaceName}
+                onChange={(event) => setSpaceName(event.currentTarget.value)}
+                onInput={(event) => setSpaceName(event.currentTarget.value)}
+                autoComplete="off"
+                spellCheck={false}
+                className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+              />
+            </label>
+          </div>
+        </section>
 
+        <div className="grid gap-3">
+          <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
+                    Input
+                  </p>
+                  <h2 className="text-lg font-semibold">자재 산출 입력 영역</h2>
+                </div>
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {!isFlatMoldingSelected && (
                   <fieldset className="grid gap-1 text-xs font-semibold">
                     <legend>시공 타입</legend>
@@ -2006,10 +2026,13 @@ export default function Home() {
             <div className="rounded-lg border border-black/10 bg-[#1f2421] p-3 text-white shadow-sm">
               <div className="flex flex-col gap-1 border-b border-white/10 pb-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-bold text-[#94d0bb]">계산 결과</p>
+                  <p className="text-xs font-bold text-[#94d0bb]">Result</p>
                   <h2 className="text-base font-semibold">
-                    {siteName || "현장명"} / {spaceName || "구역명"}
+                    현재 구역 계산 결과
                   </h2>
+                  <p className="mt-0.5 text-xs text-white/65">
+                    {siteName || "현장명"} / {spaceName || "구역명"}
+                  </p>
                 </div>
                 <p className="text-xs text-white/58">
                   {isFlatMoldingSelected
@@ -2204,7 +2227,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="grid gap-3 lg:grid-rows-[minmax(0,1fr)_auto_auto]">
+          <section className="grid gap-3">
             <div className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
                 <div>
@@ -2344,8 +2367,8 @@ export default function Home() {
             <div className="rounded-lg border border-black/10 bg-[#1f2421] p-3 text-white shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
                 <div>
-                  <p className="text-xs font-bold text-[#94d0bb]">Totals</p>
-                  <h2 className="text-lg font-semibold">전체 합계</h2>
+                  <p className="text-xs font-bold text-[#94d0bb]">Site total</p>
+                  <h2 className="text-lg font-semibold">현장 전체 합계</h2>
                 </div>
                 <div className="rounded-md bg-[#f2d16b] px-3 py-2 text-right text-[#1d1d1b]">
                   <dt className="text-xs font-bold">전체 금액</dt>
