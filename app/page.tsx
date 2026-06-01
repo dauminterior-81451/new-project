@@ -290,7 +290,7 @@ const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const FLAT_MOLDING_SPEC = {
-  displaySize: "309T / 2400mm",
+  displaySize: "30 9T / 2400mm",
   size: "30x9x2400",
   width: 30,
   height: 9,
