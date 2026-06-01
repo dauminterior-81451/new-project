@@ -28,6 +28,11 @@ type MaterialPriceSettings = {
   prices?: Record<string, number | null>;
 };
 
+type RegisteredSite = {
+  id: string;
+  name: string;
+};
+
 type ManagedMaterial = {
   id: string;
   category: MaterialCategory;
@@ -89,6 +94,7 @@ const FIELD_RANGE_WARNING_MESSAGE =
 const MAX_GENERAL_SPAN_MM = 20_000;
 const MAX_GENERAL_HEIGHT_MM = 5_000;
 const MAX_GENERAL_AREA_M2 = 100;
+const REGISTERED_SITES_STORAGE_KEY = "daum-material-registered-sites";
 
 type SavedEstimate = {
   id: string;
@@ -296,6 +302,45 @@ const createEmptyLumberSpecTotals = () => ({
 
 const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const parseRegisteredSites = (value: string | null): RegisteredSite[] => {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((site): RegisteredSite | null => {
+        if (!site || typeof site !== "object") {
+          return null;
+        }
+
+        const candidate = site as Partial<RegisteredSite>;
+        const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+
+        if (!name) {
+          return null;
+        }
+
+        return {
+          id:
+            typeof candidate.id === "string" && candidate.id
+              ? candidate.id
+              : createSavedEstimateId(),
+          name,
+        };
+      })
+      .filter((site): site is RegisteredSite => site !== null);
+  } catch {
+    return [];
+  }
+};
 
 const FLAT_MOLDING_SPEC = {
   displaySize: "309T / 2400mm",
@@ -930,6 +975,11 @@ const createProjectPdfHtml = (
 
 export default function Home() {
   const [siteName, setSiteName] = useState("다움인테리어");
+  const [siteRegistrationName, setSiteRegistrationName] = useState("");
+  const [registeredSites, setRegisteredSites] = useState<RegisteredSite[]>([]);
+  const [selectedRegisteredSiteId, setSelectedRegisteredSiteId] = useState<
+    string | null
+  >(null);
   const [spaceName, setSpaceName] = useState("거실 천장");
   const [workType, setWorkType] = useState<WorkType>("ceiling");
   const [widthMm, setWidthMm] = useState("3600");
@@ -1183,10 +1233,26 @@ export default function Home() {
 
       setSavedEstimates(await loadSavedZones<SavedEstimate>());
       setSavedProjects(await loadSavedProjects<SavedProject>());
+      setRegisteredSites(
+        parseRegisteredSites(
+          window.localStorage.getItem(REGISTERED_SITES_STORAGE_KEY),
+        ),
+      );
 
       setIsStorageLoaded(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isStorageLoaded) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      REGISTERED_SITES_STORAGE_KEY,
+      JSON.stringify(registeredSites),
+    );
+  }, [isStorageLoaded, registeredSites]);
 
   useEffect(() => {
     if (!isStorageLoaded) {
@@ -1261,6 +1327,40 @@ export default function Home() {
     setMaterialPriceSettings(nextSettings);
     setMaterialEditorValues(deepCopy(nextSettings.materials));
     saveMaterialPriceSettings(nextSettings);
+  };
+
+  const handleAddRegisteredSite = () => {
+    const trimmedName = siteRegistrationName.trim();
+
+    if (!trimmedName) {
+      window.alert("등록할 현장명을 입력해주세요.");
+      return;
+    }
+
+    const nextSite = {
+      id: createSavedEstimateId(),
+      name: trimmedName,
+    };
+
+    setRegisteredSites((currentSites) => [nextSite, ...currentSites]);
+    setSelectedRegisteredSiteId(nextSite.id);
+    setSiteName(trimmedName);
+    setSiteRegistrationName("");
+  };
+
+  const handleSelectRegisteredSite = (site: RegisteredSite) => {
+    setSelectedRegisteredSiteId(site.id);
+    setSiteName(site.name);
+  };
+
+  const handleDeleteRegisteredSite = (siteId: string) => {
+    setRegisteredSites((currentSites) =>
+      currentSites.filter((site) => site.id !== siteId),
+    );
+
+    setSelectedRegisteredSiteId((currentSiteId) =>
+      currentSiteId === siteId ? null : currentSiteId,
+    );
   };
 
   const handleAddMaterial = () => {
@@ -1731,6 +1831,73 @@ export default function Home() {
                 className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
               />
             </label>
+          </div>
+          <div className="mt-3 grid gap-2 border-t border-black/10 pt-3">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="grid gap-1 text-xs font-semibold">
+                현장 등록
+                <input
+                  value={siteRegistrationName}
+                  onChange={(event) =>
+                    setSiteRegistrationName(event.currentTarget.value)
+                  }
+                  onInput={(event) =>
+                    setSiteRegistrationName(event.currentTarget.value)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleAddRegisteredSite();
+                    }
+                  }}
+                  placeholder="등록할 현장명"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleAddRegisteredSite}
+                className="h-9 self-end rounded-md bg-[#2f6a57] px-4 text-sm font-bold text-white transition-colors hover:bg-[#245342]"
+              >
+                현장 등록
+              </button>
+            </div>
+            <div className="grid gap-1">
+              {registeredSites.length === 0 ? (
+                <p className="rounded-md bg-[#fbfaf7] px-3 py-2 text-xs text-black/56">
+                  등록된 현장이 없습니다.
+                </p>
+              ) : (
+                registeredSites.map((site) => (
+                  <div
+                    key={site.id}
+                    className="grid gap-2 rounded-md border border-black/10 bg-[#fbfaf7] p-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+                  >
+                    <p className="truncate text-sm font-semibold">{site.name}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRegisteredSite(site)}
+                      className={`h-8 rounded-md px-3 text-xs font-semibold transition-colors ${
+                        selectedRegisteredSiteId === site.id
+                          ? "bg-[#2f6a57] text-white"
+                          : "border border-black/15 bg-white hover:bg-[#f4f1eb]"
+                      }`}
+                    >
+                      선택
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRegisteredSite(site.id)}
+                      className="h-8 rounded-md border border-black/15 bg-white px-3 text-xs font-semibold transition-colors hover:bg-[#f4f1eb]"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </section>
 
