@@ -290,7 +290,7 @@ const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const FLAT_MOLDING_SPEC = {
-  displaySize: "309T",
+  displaySize: "309T / 2400mm",
   size: "30x9x2400",
   width: 30,
   height: 9,
@@ -1975,73 +1975,61 @@ export default function Home() {
                     />
                   </>
                 )}
-                <ResultRow
-                  label="목상 간격"
-                  value={
-                    result.spacing === null
-                      ? "목상 없음"
-                      : `${formatNumber(result.spacing)}mm`
-                  }
-                />
-                <ResultRow
-                  label="목상 총 길이"
-                  value={`${formatNumber(result.lumberLength)}mm`}
-                />
-                <ResultRow
-                  label="소송 규격"
-                  value={`${result.selectedLumberName}${
-                    lumberSelection === "auto" ? " (자동)" : ""
-                  }`}
-                />
-                <ResultRow
-                  label="소송 1본 길이"
-                  value={`${formatNumber(result.selectedLumberLength)}mm`}
-                />
-                <ResultRow
-                  label="자재명"
-                  value={selectedSheetMaterial?.name ?? ""}
-                />
-                <ResultRow
-                  label="자재 크기"
-                  value={`${formatNumber(selectedSheetSize.width)}x${formatNumber(
-                    selectedSheetSize.height,
-                  )}mm`}
-                />
-                <ResultRow
-                  label="필요 장수"
-                  value={`${formatNumber(result.sheetQuantity)}장`}
-                />
-                <ResultRow
-                  label="소송 발주"
-                  value={`${formatNumber(result.orderBundles)}단`}
-                />
-                <ResultRow
-                  label="판재 금액"
-                  value={formatCurrency(result.sheetAmount)}
-                />
-                <ResultRow
-                  label="소송 금액"
-                  value={formatCurrency(result.lumberAmount)}
-                />
+                {!isFlatMoldingSelected && (
+                  <>
+                    <ResultRow
+                      label="목상 간격"
+                      value={
+                        result.spacing === null
+                          ? "목상 없음"
+                          : `${formatNumber(result.spacing)}mm`
+                      }
+                    />
+                    <ResultRow
+                      label="목상 총 길이"
+                      value={`${formatNumber(result.lumberLength)}mm`}
+                    />
+                    <ResultRow
+                      label="소송 규격"
+                      value={`${result.selectedLumberName}${
+                        lumberSelection === "auto" ? " (자동)" : ""
+                      }`}
+                    />
+                    <ResultRow
+                      label="소송 1본 길이"
+                      value={`${formatNumber(result.selectedLumberLength)}mm`}
+                    />
+                    <ResultRow
+                      label="자재명"
+                      value={selectedSheetMaterial?.name ?? ""}
+                    />
+                    <ResultRow
+                      label="자재 크기"
+                      value={`${formatNumber(selectedSheetSize.width)}x${formatNumber(
+                        selectedSheetSize.height,
+                      )}mm`}
+                    />
+                    <ResultRow
+                      label="필요 장수"
+                      value={`${formatNumber(result.sheetQuantity)}장`}
+                    />
+                    <ResultRow
+                      label="소송 발주"
+                      value={`${formatNumber(result.orderBundles)}단`}
+                    />
+                    <ResultRow
+                      label="판재 금액"
+                      value={formatCurrency(result.sheetAmount)}
+                    />
+                    <ResultRow
+                      label="소송 금액"
+                      value={formatCurrency(result.lumberAmount)}
+                    />
+                  </>
+                )}
               </dl>
 
-              {isFlatMoldingSelected ? (
-                <div className="mt-2 grid gap-2">
-                  <CalculationProcess
-                    title={selectedSheetMaterial?.name ?? "평몰딩"}
-                    baseLabel="기본수량"
-                    baseValue={`${formatNumber(result.baseSheetQuantity)}본`}
-                    lossRateText={`${formatNumber(
-                      Math.max(0, Number(lossRate) || 0),
-                    )}%`}
-                    calculatedValue={`${formatNumber(
-                      result.calculatedSheetQuantity,
-                    )}본`}
-                    finalLabel="최종발주"
-                    finalValue={`${formatNumber(result.sheetQuantity)}본`}
-                  />
-                </div>
-              ) : (
+              {!isFlatMoldingSelected && (
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <CalculationProcess
                     title={selectedSheetMaterial?.name ?? "판재"}
