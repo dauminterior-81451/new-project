@@ -19,7 +19,7 @@ type CeilingAreaUnit = "m2" | "mm2";
 type LumberSpecKey = "sosong-8" | "sosong-12";
 type SheetMaterialCategory = Extract<
   MaterialCategory,
-  "board" | "gypsum" | "insulation"
+  "board" | "gypsum" | "insulation" | "supply"
 >;
 
 type MaterialPriceSettings = {
@@ -54,6 +54,7 @@ const SHEET_CATEGORY_LABELS: Record<SheetMaterialCategory, string> = {
   board: "목재류",
   gypsum: "석고보드류",
   insulation: "단열재류",
+  supply: "몰딩류",
 };
 
 const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
@@ -289,6 +290,7 @@ const createMaterialId = () =>
   `material-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const FLAT_MOLDING_SPEC = {
+  displaySize: "309T",
   size: "30x9x2400",
   width: 30,
   height: 9,
@@ -558,6 +560,14 @@ const getEstimateSheetMaterialName = (
 const getEstimateAreaM2 = (estimate: SavedEstimate) =>
   estimate.convertedAreaM2 ??
   (estimate.widthMm * estimate.depthOrHeightMm) / 1_000_000;
+
+const isSheetCategoryMaterial = (
+  material: ManagedMaterial,
+  category: SheetMaterialCategory,
+) =>
+  category === "supply"
+    ? isFlatMoldingMaterial(material)
+    : material.category === category;
 
 const createZoneSnapshot = (estimate: SavedEstimate): ProjectZoneSnapshot => {
   const material = materials.find(
@@ -840,6 +850,7 @@ export default function Home() {
   const [ceilingAreaUnit, setCeilingAreaUnit] =
     useState<CeilingAreaUnit>("m2");
   const [ceilingLumberLengthMm, setCeilingLumberLengthMm] = useState("");
+  const [flatMoldingLengthMm, setFlatMoldingLengthMm] = useState("");
   const [joistSpacing, setJoistSpacing] = useState<JoistSpacing>(300);
   const [lumberSelection, setLumberSelection] =
     useState<LumberSelection>("auto");
@@ -866,11 +877,14 @@ export default function Home() {
 
   const pricedMaterials = materialPriceSettings.materials;
   const sheetMaterials = pricedMaterials.filter(
-    (material) => material.category === sheetCategory,
+    (material) => isSheetCategoryMaterial(material, sheetCategory),
   );
   const selectedSheetMaterial =
     sheetMaterials.find((material) => material.id === sheetMaterialId) ??
     sheetMaterials[0];
+  const isFlatMoldingSelected =
+    selectedSheetMaterial !== undefined &&
+    isFlatMoldingMaterial(selectedSheetMaterial);
   const selectedSheetSize = getSheetSize(selectedSheetMaterial?.size ?? "");
   const recommendedLumberId = workType === "ceiling" ? "sosong-12" : "sosong-8";
   const selectedLumberId =
@@ -897,12 +911,27 @@ export default function Home() {
       ceilingAreaUnit === "mm2" ? ceilingAreaInput / 1_000_000 : ceilingAreaInput;
     const wallArea = (width * depthOrHeight) / 1_000_000;
     const lossMultiplier = 1 + Math.max(0, Number(lossRate) || 0) / 100;
+    const flatMoldingLength = toPositiveNumber(flatMoldingLengthMm);
+    const flatMoldingBaseQuantity =
+      FLAT_MOLDING_SPEC.length > 0
+        ? flatMoldingLength / FLAT_MOLDING_SPEC.length
+        : 0;
+    const flatMoldingCalculatedQuantity =
+      flatMoldingBaseQuantity * lossMultiplier;
     const area = workType === "ceiling" ? convertedCeilingArea : wallArea;
     const baseSheetQuantity =
-      selectedSheetArea > 0 ? (area / selectedSheetArea) * gypsumLayer : 0;
-    const calculatedSheetQuantity = baseSheetQuantity * lossMultiplier;
+      isFlatMoldingSelected
+        ? flatMoldingBaseQuantity
+        : selectedSheetArea > 0
+          ? (area / selectedSheetArea) * gypsumLayer
+          : 0;
+    const calculatedSheetQuantity = isFlatMoldingSelected
+      ? flatMoldingCalculatedQuantity
+      : baseSheetQuantity * lossMultiplier;
     const sheetQuantity =
-      selectedSheetArea > 0
+      isFlatMoldingSelected
+        ? Math.ceil(calculatedSheetQuantity)
+        : selectedSheetArea > 0
         ? Math.ceil(calculatedSheetQuantity)
         : 0;
 
@@ -931,11 +960,11 @@ export default function Home() {
           : "area-estimate"
         : "wall-layout";
     const lumberPieces =
-      hasJoistSpacing && selectedLumberLength > 0
+      !isFlatMoldingSelected && hasJoistSpacing && selectedLumberLength > 0
         ? Math.ceil(lumberLength / selectedLumberLength)
         : 0;
     const baseLumberPieces =
-      hasJoistSpacing && selectedLumberLength > 0
+      !isFlatMoldingSelected && hasJoistSpacing && selectedLumberLength > 0
         ? lumberLength / selectedLumberLength
         : 0;
     const actualBundles =
@@ -959,6 +988,7 @@ export default function Home() {
       lumberAmount,
       totalAmount: sheetAmount + lumberAmount,
       spacing,
+      flatMoldingLength,
       horizontalLineCount,
       verticalLineCount,
       lumberLength,
@@ -1071,7 +1101,7 @@ export default function Home() {
 
   useEffect(() => {
     const nextSheetMaterials = pricedMaterials.filter(
-      (material) => material.category === sheetCategory,
+      (material) => isSheetCategoryMaterial(material, sheetCategory),
     );
 
     if (
@@ -1179,6 +1209,15 @@ export default function Home() {
   };
 
   const validateEstimateInputBeforeSave = () => {
+    if (isFlatMoldingSelected && !isPositiveInput(flatMoldingLengthMm)) {
+      window.alert("평몰딩 필요 총 길이는 0보다 큰 값으로 입력해주세요.");
+      return false;
+    }
+
+    if (isFlatMoldingSelected) {
+      return true;
+    }
+
     if (workType === "ceiling" && !isPositiveInput(ceilingArea)) {
       window.alert("천장 면적은 0보다 큰 값으로 입력해주세요.");
       return false;
@@ -1209,6 +1248,23 @@ export default function Home() {
   };
 
   const createKakaoShareText = () => {
+    if (isFlatMoldingSelected) {
+      const moldingSpec = FLAT_MOLDING_SPEC.displaySize;
+
+      return [
+        "[목공 자재 발주]",
+        "",
+        `현장명: ${siteName.trim() || "현장"}`,
+        `구역명: ${spaceName.trim() || "구역"}`,
+        "",
+        `자재명: ${selectedSheetMaterial?.name || "평몰딩"}`,
+        `규격: ${moldingSpec}`,
+        `수량: ${formatNumber(result.sheetQuantity)}`,
+        `단위: 본`,
+        `비고: 입력 길이 ${formatNumber(result.flatMoldingLength)}mm`,
+      ].join("\n");
+    }
+
     const sheetSpec = [
       selectedSheetMaterial?.size,
       selectedSheetMaterial?.thickness,
@@ -1284,15 +1340,25 @@ export default function Home() {
       siteName: siteName.trim() || "현장명 미입력",
       zoneName: spaceName.trim() || "구역명 미입력",
       workType,
-      widthMm: workType === "wall" ? toPositiveNumber(widthMm) : 0,
+      widthMm: !isFlatMoldingSelected && workType === "wall" ? toPositiveNumber(widthMm) : 0,
       depthOrHeightMm:
-        workType === "wall" ? toPositiveNumber(depthOrHeightMm) : 0,
-      ceilingArea: workType === "ceiling" ? result.ceilingAreaInput : undefined,
-      ceilingAreaUnit: workType === "ceiling" ? result.ceilingAreaUnit : undefined,
+        !isFlatMoldingSelected && workType === "wall" ? toPositiveNumber(depthOrHeightMm) : 0,
+      ceilingArea:
+        !isFlatMoldingSelected && workType === "ceiling"
+          ? result.ceilingAreaInput
+          : undefined,
+      ceilingAreaUnit:
+        !isFlatMoldingSelected && workType === "ceiling"
+          ? result.ceilingAreaUnit
+          : undefined,
       convertedAreaM2:
-        workType === "ceiling" ? result.convertedCeilingArea : result.area,
+        isFlatMoldingSelected
+          ? 0
+          : workType === "ceiling"
+            ? result.convertedCeilingArea
+            : result.area,
       ceilingLumberLengthMm:
-        workType === "ceiling"
+        !isFlatMoldingSelected && workType === "ceiling"
           ? toPositiveNumber(ceilingLumberLengthMm) || undefined
           : undefined,
       lumberCalculationMethod: result.lumberCalculationMethod,
@@ -1310,10 +1376,10 @@ export default function Home() {
       sheetQuantity: result.sheetQuantity,
       sheetAmount: result.sheetAmount,
       lossRateSnapshot: Math.max(0, Number(lossRate) || 0),
-      lumberName: result.selectedLumberName,
-      lumberSpecId: selectedLumberId,
-      lumberLengthMm: result.selectedLumberLength,
-      lumberBundleCount: selectedLumberBundleCount,
+      lumberName: isFlatMoldingSelected ? "" : result.selectedLumberName,
+      lumberSpecId: isFlatMoldingSelected ? undefined : selectedLumberId,
+      lumberLengthMm: isFlatMoldingSelected ? 0 : result.selectedLumberLength,
+      lumberBundleCount: isFlatMoldingSelected ? 0 : selectedLumberBundleCount,
       lumberPieces: result.lumberPieces,
       lumberOrderBundles: result.orderBundles,
       lumberAmount: result.lumberAmount,
@@ -1543,34 +1609,36 @@ export default function Home() {
                   />
                 </label>
 
-                <fieldset className="grid gap-1 text-xs font-semibold">
-                  <legend>시공 타입</legend>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      ["ceiling", "천장"],
-                      ["wall", "벽체"],
-                    ].map(([value, label]) => (
-                      <label
-                        key={value}
-                        className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
-                      >
-                        <input
-                          type="radio"
-                          name="workType"
-                          value={value}
-                          checked={workType === value}
-                          onChange={() => setWorkType(value as WorkType)}
-                          className="sr-only"
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
+                {!isFlatMoldingSelected && (
+                  <fieldset className="grid gap-1 text-xs font-semibold">
+                    <legend>시공 타입</legend>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        ["ceiling", "천장"],
+                        ["wall", "벽체"],
+                      ].map(([value, label]) => (
+                        <label
+                          key={value}
+                          className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
+                        >
+                          <input
+                            type="radio"
+                            name="workType"
+                            value={value}
+                            checked={workType === value}
+                            onChange={() => setWorkType(value as WorkType)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
 
                 <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>자재군</legend>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {(
                       Object.entries(SHEET_CATEGORY_LABELS) as [
                         SheetMaterialCategory,
@@ -1588,7 +1656,7 @@ export default function Home() {
                           checked={sheetCategory === value}
                           onChange={() => {
                             const nextMaterials = pricedMaterials.filter(
-                              (material) => material.category === value,
+                              (material) => isSheetCategoryMaterial(material, value),
                             );
 
                             setSheetCategory(value);
@@ -1618,7 +1686,23 @@ export default function Home() {
                   </select>
                 </label>
 
-                {workType === "ceiling" && (
+                {isFlatMoldingSelected && (
+                  <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
+                    필요 총 길이(mm)
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={flatMoldingLengthMm}
+                      onChange={(event) =>
+                        setFlatMoldingLengthMm(event.target.value)
+                      }
+                      className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+                    />
+                  </label>
+                )}
+
+                {!isFlatMoldingSelected && workType === "ceiling" && (
                   <>
                     <label className="grid gap-1 text-xs font-semibold">
                       천장 면적
@@ -1673,7 +1757,7 @@ export default function Home() {
                   </>
                 )}
 
-                {workType === "wall" && (
+                {!isFlatMoldingSelected && workType === "wall" && (
                   <>
                     <label className="grid gap-1 text-xs font-semibold">
                       벽체 가로 길이(mm)
@@ -1700,6 +1784,7 @@ export default function Home() {
                   </>
                 )}
 
+                {!isFlatMoldingSelected && (
                 <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>목상 간격</legend>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -1728,7 +1813,9 @@ export default function Home() {
                     <p className="text-xs font-bold text-[#2f6a57]">목상 없음</p>
                   ) : null}
                 </fieldset>
+                )}
 
+                {!isFlatMoldingSelected && (
                 <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>소송 규격</legend>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -1756,7 +1843,9 @@ export default function Home() {
                     ))}
                   </div>
                 </fieldset>
+                )}
 
+                {!isFlatMoldingSelected && (
                 <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>자재 겹수</legend>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -1778,6 +1867,7 @@ export default function Home() {
                     ))}
                   </div>
                 </fieldset>
+                )}
 
                 <label className="grid gap-1 text-xs font-semibold">
                   로스율(%)
@@ -1801,14 +1891,50 @@ export default function Home() {
                   </h2>
                 </div>
                 <p className="text-xs text-white/58">
-                  {workType === "ceiling"
+                  {isFlatMoldingSelected
+                    ? "평몰딩 길이 기준 계산"
+                    : workType === "ceiling"
                     ? "천장 면적 기준 계산"
                     : "벽체 세로 스터드 계산"}
                 </p>
               </div>
 
               <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                {workType === "ceiling" ? (
+                {isFlatMoldingSelected ? (
+                  <>
+                    <ResultRow
+                      label="자재명"
+                      value={selectedSheetMaterial?.name ?? "평몰딩"}
+                    />
+                    <ResultRow label="규격" value={FLAT_MOLDING_SPEC.displaySize} />
+                    <ResultRow
+                      label="입력 길이"
+                      value={`${formatNumber(result.flatMoldingLength)}mm`}
+                    />
+                    <ResultRow
+                      label="기본수량"
+                      value={`${formatNumber(result.baseSheetQuantity)}본`}
+                    />
+                    <ResultRow
+                      label="로스율"
+                      value={`${formatNumber(
+                        Math.max(0, Number(lossRate) || 0),
+                      )}%`}
+                    />
+                    <ResultRow
+                      label="계산수량"
+                      value={`${formatNumber(result.calculatedSheetQuantity)}본`}
+                    />
+                    <ResultRow
+                      label="최종발주"
+                      value={`${formatNumber(result.sheetQuantity)}본`}
+                    />
+                    <ResultRow
+                      label="금액"
+                      value={formatCurrency(result.sheetAmount)}
+                    />
+                  </>
+                ) : workType === "ceiling" ? (
                   <>
                     <ResultRow
                       label="입력 면적"
@@ -1899,32 +2025,50 @@ export default function Home() {
                 />
               </dl>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <CalculationProcess
-                  title={selectedSheetMaterial?.name ?? "판재"}
-                  baseLabel="기본수량"
-                  baseValue={`${formatNumber(result.baseSheetQuantity)}장`}
-                  lossRateText={`${formatNumber(
-                    Math.max(0, Number(lossRate) || 0),
-                  )}%`}
-                  calculatedValue={`${formatNumber(
-                    result.calculatedSheetQuantity,
-                  )}장`}
-                  finalLabel="최종발주"
-                  finalValue={`${formatNumber(result.sheetQuantity)}장`}
-                />
-                <CalculationProcess
-                  title={result.selectedLumberName || "소송"}
-                  baseLabel="기본수량"
-                  baseValue={`${formatNumber(result.baseLumberPieces)}본`}
-                  lossRateText="소송 계산 미적용"
-                  calculatedValue={`${formatNumber(
-                    result.calculatedLumberPieces,
-                  )}본`}
-                  finalLabel="최종본수"
-                  finalValue={`${formatNumber(result.lumberPieces)}본`}
-                />
-              </div>
+              {isFlatMoldingSelected ? (
+                <div className="mt-2 grid gap-2">
+                  <CalculationProcess
+                    title={selectedSheetMaterial?.name ?? "평몰딩"}
+                    baseLabel="기본수량"
+                    baseValue={`${formatNumber(result.baseSheetQuantity)}본`}
+                    lossRateText={`${formatNumber(
+                      Math.max(0, Number(lossRate) || 0),
+                    )}%`}
+                    calculatedValue={`${formatNumber(
+                      result.calculatedSheetQuantity,
+                    )}본`}
+                    finalLabel="최종발주"
+                    finalValue={`${formatNumber(result.sheetQuantity)}본`}
+                  />
+                </div>
+              ) : (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <CalculationProcess
+                    title={selectedSheetMaterial?.name ?? "판재"}
+                    baseLabel="기본수량"
+                    baseValue={`${formatNumber(result.baseSheetQuantity)}장`}
+                    lossRateText={`${formatNumber(
+                      Math.max(0, Number(lossRate) || 0),
+                    )}%`}
+                    calculatedValue={`${formatNumber(
+                      result.calculatedSheetQuantity,
+                    )}장`}
+                    finalLabel="최종발주"
+                    finalValue={`${formatNumber(result.sheetQuantity)}장`}
+                  />
+                  <CalculationProcess
+                    title={result.selectedLumberName || "소송"}
+                    baseLabel="기본수량"
+                    baseValue={`${formatNumber(result.baseLumberPieces)}본`}
+                    lossRateText="소송 계산 미적용"
+                    calculatedValue={`${formatNumber(
+                      result.calculatedLumberPieces,
+                    )}본`}
+                    finalLabel="최종본수"
+                    finalValue={`${formatNumber(result.lumberPieces)}본`}
+                  />
+                </div>
+              )}
 
               <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-stretch">
                 <div className="rounded-md bg-[#f2d16b] px-3 py-2 text-[#1d1d1b]">
