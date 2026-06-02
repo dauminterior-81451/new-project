@@ -17,6 +17,7 @@ type GypsumLayer = 1 | 2;
 type LumberSelection = "auto" | "sosong-8" | "sosong-12";
 type CeilingAreaUnit = "m2" | "mm2";
 type LumberSpecKey = "sosong-8" | "sosong-12";
+type SheetOrderMode = "whole" | "half";
 type SheetMaterialCategory = Extract<
   MaterialCategory,
   "board" | "gypsum" | "insulation" | "supply"
@@ -123,6 +124,7 @@ type SavedEstimate = {
   sheetMaterialThickness?: string;
   sheetMaterialUnit?: string;
   sheetMaterialPrice: number;
+  sheetOrderMode?: SheetOrderMode;
   sheetQuantity: number;
   sheetAmount: number;
   lossRateSnapshot?: number;
@@ -159,6 +161,7 @@ type ProjectZoneSnapshot = {
   sheetMaterialThickness: string;
   sheetMaterialUnit: string;
   sheetMaterialPrice: number;
+  sheetOrderMode?: SheetOrderMode;
   inputWidthMm?: number;
   inputHeightMm?: number;
   inputArea?: number;
@@ -590,6 +593,18 @@ const getLumberSpecId = (estimate: SavedEstimate): LumberSpecKey => {
 
 const deepCopy = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
+const getSheetOrderMode = (
+  estimate: Pick<SavedEstimate, "sheetOrderMode">,
+): SheetOrderMode => estimate.sheetOrderMode ?? "whole";
+
+const getSheetOrderQuantity = (
+  quantity: number,
+  orderMode: SheetOrderMode,
+) => (orderMode === "half" ? quantity * 2 : quantity);
+
+const getSheetOrderUnit = (orderMode: SheetOrderMode) =>
+  orderMode === "half" ? "쪽" : "장";
+
 const getProjectDisplayName = (project: SavedProject) =>
   project.name || project.projectSaveName || project.projectName || project.siteName;
 
@@ -724,6 +739,7 @@ const createZoneSnapshot = (estimate: SavedEstimate): ProjectZoneSnapshot => {
       estimate.sheetMaterialThickness ?? material?.thickness ?? "두께미정",
     sheetMaterialUnit: estimate.sheetMaterialUnit ?? material?.unit ?? "장",
     sheetMaterialPrice: estimate.sheetMaterialPrice,
+    sheetOrderMode: getSheetOrderMode(estimate),
     inputWidthMm: estimate.workType === "wall" ? estimate.widthMm : undefined,
     inputHeightMm:
       estimate.workType === "wall" ? estimate.depthOrHeightMm : undefined,
@@ -995,11 +1011,17 @@ export default function Home() {
   const [sheetCategory, setSheetCategory] =
     useState<SheetMaterialCategory>("gypsum");
   const [sheetMaterialId, setSheetMaterialId] = useState("sheetrock-9-5t");
+  const [sheetOrderMode, setSheetOrderMode] =
+    useState<SheetOrderMode>("whole");
   const [gypsumLayer, setGypsumLayer] = useState<GypsumLayer>(1);
   const [lossRate, setLossRate] = useState("10");
   const [projectSaveName, setProjectSaveName] = useState("");
   const [projectSaveNameError, setProjectSaveNameError] = useState("");
   const [savedEstimates, setSavedEstimates] = useState<SavedEstimate[]>([]);
+  const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
+  const [expandedEstimateId, setExpandedEstimateId] = useState<string | null>(
+    null,
+  );
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null,
@@ -1144,8 +1166,13 @@ export default function Home() {
     };
   })();
 
+  const selectedSiteName = siteName.trim() || "현장명 미입력";
+  const selectedSiteEstimates = savedEstimates.filter(
+    (estimate) => estimate.siteName === selectedSiteName,
+  );
+
   const totalSummary = (() => {
-    const byMaterial = savedEstimates.reduce<Record<string, number>>(
+    const byMaterial = selectedSiteEstimates.reduce<Record<string, number>>(
       (accumulator, estimate) => {
         const materialName = getEstimateSheetMaterialName(
           estimate,
@@ -1159,7 +1186,7 @@ export default function Home() {
       },
       {},
     );
-    const byLumberSpec = savedEstimates.reduce<Record<LumberSpecKey, LumberSpecTotal>>(
+    const byLumberSpec = selectedSiteEstimates.reduce<Record<LumberSpecKey, LumberSpecTotal>>(
       (accumulator, estimate) => {
         if (isFlatMoldingEstimate(estimate)) {
           return accumulator;
@@ -1178,37 +1205,37 @@ export default function Home() {
     );
 
     return {
-      totalSheetQuantity: savedEstimates.reduce(
+      totalSheetQuantity: selectedSiteEstimates.reduce(
         (sum, estimate) =>
           isFlatMoldingEstimate(estimate) ? sum : sum + estimate.sheetQuantity,
         0,
       ),
-      totalFlatMoldingQuantity: savedEstimates.reduce(
+      totalFlatMoldingQuantity: selectedSiteEstimates.reduce(
         (sum, estimate) =>
           isFlatMoldingEstimate(estimate) ? sum + estimate.sheetQuantity : sum,
         0,
       ),
-      totalLumberPieces: savedEstimates.reduce(
+      totalLumberPieces: selectedSiteEstimates.reduce(
         (sum, estimate) =>
           isFlatMoldingEstimate(estimate) ? sum : sum + estimate.lumberPieces,
         0,
       ),
-      totalLumberOrderBundles: savedEstimates.reduce(
+      totalLumberOrderBundles: selectedSiteEstimates.reduce(
         (sum, estimate) =>
           isFlatMoldingEstimate(estimate)
             ? sum
             : sum + estimate.lumberOrderBundles,
         0,
       ),
-      totalSheetAmount: savedEstimates.reduce(
+      totalSheetAmount: selectedSiteEstimates.reduce(
         (sum, estimate) => sum + estimate.sheetAmount,
         0,
       ),
-      totalLumberAmount: savedEstimates.reduce(
+      totalLumberAmount: selectedSiteEstimates.reduce(
         (sum, estimate) => sum + estimate.lumberAmount,
         0,
       ),
-      totalAmount: savedEstimates.reduce(
+      totalAmount: selectedSiteEstimates.reduce(
         (sum, estimate) => sum + estimate.totalAmount,
         0,
       ),
@@ -1231,13 +1258,42 @@ export default function Home() {
         setMaterialEditorValues(deepCopy(savedMaterialPriceSettings.materials));
       }
 
-      setSavedEstimates(await loadSavedZones<SavedEstimate>());
-      setSavedProjects(await loadSavedProjects<SavedProject>());
-      setRegisteredSites(
-        parseRegisteredSites(
-          window.localStorage.getItem(REGISTERED_SITES_STORAGE_KEY),
-        ),
+      const loadedZones = await loadSavedZones<SavedEstimate>();
+      const loadedProjects = await loadSavedProjects<SavedProject>();
+      const loadedRegisteredSites = parseRegisteredSites(
+        window.localStorage.getItem(REGISTERED_SITES_STORAGE_KEY),
       );
+      const siteNames = new Set<string>();
+      const nextRegisteredSites = [...loadedRegisteredSites];
+
+      nextRegisteredSites.forEach((site) => siteNames.add(site.name));
+      loadedZones.forEach((estimate) => {
+        if (estimate.siteName && !siteNames.has(estimate.siteName)) {
+          siteNames.add(estimate.siteName);
+          nextRegisteredSites.push({
+            id: createSavedEstimateId(),
+            name: estimate.siteName,
+          });
+        }
+      });
+      loadedProjects.forEach((project) => {
+        if (project.siteName && !siteNames.has(project.siteName)) {
+          siteNames.add(project.siteName);
+          nextRegisteredSites.push({
+            id: createSavedEstimateId(),
+            name: project.siteName,
+          });
+        }
+      });
+
+      setSavedEstimates(loadedZones);
+      setSavedProjects(loadedProjects);
+      setRegisteredSites(nextRegisteredSites);
+
+      if (nextRegisteredSites.length > 0) {
+        setSelectedRegisteredSiteId(nextRegisteredSites[0].id);
+        setSiteName(nextRegisteredSites[0].name);
+      }
 
       setIsStorageLoaded(true);
     });
@@ -1337,6 +1393,11 @@ export default function Home() {
       return;
     }
 
+    if (registeredSites.some((site) => site.name === trimmedName)) {
+      window.alert("이미 등록된 현장명입니다.");
+      return;
+    }
+
     const nextSite = {
       id: createSavedEstimateId(),
       name: trimmedName,
@@ -1351,16 +1412,60 @@ export default function Home() {
   const handleSelectRegisteredSite = (site: RegisteredSite) => {
     setSelectedRegisteredSiteId(site.id);
     setSiteName(site.name);
+    setEditingEstimateId(null);
+    setExpandedEstimateId(null);
+  };
+
+  const handleRenameRegisteredSite = (siteId: string, nextName: string) => {
+    const previousSite = registeredSites.find((site) => site.id === siteId);
+
+    if (!previousSite) {
+      setSiteName(nextName);
+      return;
+    }
+
+    setRegisteredSites((currentSites) =>
+      currentSites.map((site) =>
+        site.id === siteId ? { ...site, name: nextName } : site,
+      ),
+    );
+    setSavedEstimates((currentEstimates) =>
+      currentEstimates.map((estimate) =>
+        estimate.siteName === previousSite.name
+          ? { ...estimate, siteName: nextName }
+          : estimate,
+      ),
+    );
+    setSiteName(nextName);
   };
 
   const handleDeleteRegisteredSite = (siteId: string) => {
+    const targetSite = registeredSites.find((site) => site.id === siteId);
+
+    if (!targetSite) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `${targetSite.name} 현장과 해당 현장의 저장 구역을 삭제하시겠습니까?`,
+      )
+    ) {
+      return;
+    }
+
     setRegisteredSites((currentSites) =>
       currentSites.filter((site) => site.id !== siteId),
+    );
+    setSavedEstimates((currentEstimates) =>
+      currentEstimates.filter((estimate) => estimate.siteName !== targetSite.name),
     );
 
     setSelectedRegisteredSiteId((currentSiteId) =>
       currentSiteId === siteId ? null : currentSiteId,
     );
+    setEditingEstimateId(null);
+    setExpandedEstimateId(null);
   };
 
   const handleAddMaterial = () => {
@@ -1414,6 +1519,16 @@ export default function Home() {
   };
 
   const validateEstimateInputBeforeSave = () => {
+    if (!siteName.trim()) {
+      window.alert("현장명을 입력해주세요.");
+      return false;
+    }
+
+    if (!spaceName.trim()) {
+      window.alert("구역명을 입력해주세요.");
+      return false;
+    }
+
     if (isFlatMoldingSelected && !isPositiveInput(flatMoldingLengthMm)) {
       window.alert("평몰딩 필요 총 길이는 0보다 큰 값으로 입력해주세요.");
       return false;
@@ -1476,13 +1591,20 @@ export default function Home() {
     ]
       .filter(Boolean)
       .join(" / ");
+    const sheetOrderQuantity = getSheetOrderQuantity(
+      result.sheetQuantity,
+      sheetOrderMode,
+    );
     const orderLines = [
       {
         name: selectedSheetMaterial?.name || "판재",
         spec: sheetSpec || "-",
-        quantity: result.sheetQuantity,
-        unit: "장",
-        note: "",
+        quantity: sheetOrderQuantity,
+        unit: getSheetOrderUnit(sheetOrderMode),
+        note:
+          sheetOrderMode === "half"
+            ? `${formatNumber(result.sheetQuantity)}장 재단 요청`
+            : "",
       },
       {
         name: result.selectedLumberName || "소송",
@@ -1539,11 +1661,11 @@ export default function Home() {
     }
 
     const nextEstimate: SavedEstimate = {
-      id: createSavedEstimateId(),
+      id: editingEstimateId ?? createSavedEstimateId(),
       savedAt: new Date().toISOString(),
       materialPriceSnapshot: deepCopy(materialPriceSettings),
-      siteName: siteName.trim() || "현장명 미입력",
-      zoneName: spaceName.trim() || "구역명 미입력",
+      siteName: selectedSiteName,
+      zoneName: spaceName.trim(),
       workType,
       widthMm: !isFlatMoldingSelected && workType === "wall" ? toPositiveNumber(widthMm) : 0,
       depthOrHeightMm:
@@ -1590,6 +1712,7 @@ export default function Home() {
       sheetMaterialThickness: selectedSheetMaterial?.thickness ?? "두께미정",
       sheetMaterialUnit: selectedSheetMaterial?.unit ?? "장",
       sheetMaterialPrice: selectedSheetMaterial?.price ?? 0,
+      sheetOrderMode: isFlatMoldingSelected ? "whole" : sheetOrderMode,
       sheetQuantity: result.sheetQuantity,
       sheetAmount: result.sheetAmount,
       lossRateSnapshot: Math.max(0, Number(lossRate) || 0),
@@ -1603,20 +1726,138 @@ export default function Home() {
       totalAmount: result.totalAmount,
     };
 
-    setSavedEstimates((currentEstimates) => [
-      ...currentEstimates,
-      nextEstimate,
-    ]);
+    setSavedEstimates((currentEstimates) =>
+      editingEstimateId
+        ? currentEstimates.map((estimate) =>
+            estimate.id === editingEstimateId ? nextEstimate : estimate,
+          )
+        : [...currentEstimates, nextEstimate],
+    );
+    setEditingEstimateId(null);
   };
 
   const handleDeleteEstimate = (estimateId: string) => {
+    if (!window.confirm("이 구역을 삭제하시겠습니까?")) {
+      return;
+    }
+
     setSavedEstimates((currentEstimates) =>
       currentEstimates.filter((estimate) => estimate.id !== estimateId),
     );
+    setEditingEstimateId((currentEstimateId) =>
+      currentEstimateId === estimateId ? null : currentEstimateId,
+    );
+  };
+
+  const handleEditEstimate = (estimate: SavedEstimate) => {
+    setEditingEstimateId(estimate.id);
+    setExpandedEstimateId(estimate.id);
+    setSiteName(estimate.siteName);
+    setSpaceName(estimate.zoneName);
+    setWorkType(estimate.workType);
+    setSheetCategory(estimate.sheetCategory);
+    setSheetMaterialId(estimate.sheetMaterialId ?? "");
+    setSheetOrderMode(getSheetOrderMode(estimate));
+    setGypsumLayer(
+      estimate.sheetQuantity > 0 &&
+        estimate.baseSheetQuantity &&
+        estimate.baseSheetQuantity > 0 &&
+        estimate.sheetQuantity / estimate.baseSheetQuantity > 1.5
+        ? 2
+        : 1,
+    );
+    setLossRate(String(estimate.lossRateSnapshot ?? 0));
+    setJoistSpacing(estimate.joistSpacing);
+    setLumberSelection(estimate.lumberSpecId ?? "auto");
+    setWidthMm(String(estimate.widthMm || 3600));
+    setDepthOrHeightMm(String(estimate.depthOrHeightMm || 2400));
+    setCeilingArea(String(estimate.ceilingArea ?? estimate.convertedAreaM2 ?? ""));
+    setCeilingAreaUnit(estimate.ceilingAreaUnit ?? "m2");
+    setCeilingLumberLengthMm(String(estimate.ceilingLumberLengthMm ?? ""));
+    setFlatMoldingLengthMm(String(getFlatMoldingEstimateLength(estimate) || ""));
+  };
+
+  const handleDuplicateEstimate = (estimate: SavedEstimate) => {
+    const duplicatedEstimate: SavedEstimate = {
+      ...deepCopy(estimate),
+      id: createSavedEstimateId(),
+      savedAt: new Date().toISOString(),
+      zoneName: `${estimate.zoneName} 복사본`,
+    };
+
+    setSavedEstimates((currentEstimates) => [
+      ...currentEstimates,
+      duplicatedEstimate,
+    ]);
+  };
+
+  const createSiteOrderText = () => {
+    const materialLines = selectedSiteEstimates.flatMap((estimate) => {
+      const materialName = getEstimateSheetMaterialName(estimate, pricedMaterials);
+
+      if (isFlatMoldingEstimate(estimate)) {
+        return [`${materialName} ${formatNumber(estimate.sheetQuantity)}개`];
+      }
+
+      const orderMode = getSheetOrderMode(estimate);
+      const sheetQuantity = getSheetOrderQuantity(
+        estimate.sheetQuantity,
+        orderMode,
+      );
+      const sheetUnit = getSheetOrderUnit(orderMode);
+      const sheetLine =
+        orderMode === "half"
+          ? `${materialName} ${formatNumber(estimate.sheetQuantity)}장 재단 요청, 쪽 ${formatNumber(sheetQuantity)}매`
+          : `${materialName} ${formatNumber(sheetQuantity)}${sheetUnit}`;
+      const lumberLine =
+        estimate.lumberOrderBundles > 0
+          ? `${estimate.lumberName || LUMBER_SPEC_TOTALS_TEMPLATE[getLumberSpecId(estimate)].name} ${formatNumber(estimate.lumberOrderBundles)}단`
+          : null;
+
+      return [sheetLine, lumberLine].filter(
+        (line): line is string => line !== null,
+      );
+    });
+
+    return [
+      "[목자재 발주 요청]",
+      "",
+      `현장명: ${selectedSiteName}`,
+      "",
+      ...materialLines,
+      "",
+      "확인 후 납품 가능 일정 부탁드립니다.",
+    ].join("\n");
+  };
+
+  const handleCopySiteOrderText = async () => {
+    if (selectedSiteEstimates.length === 0) {
+      window.alert("발주용으로 복사할 저장 구역이 없습니다.");
+      return;
+    }
+
+    const text = createSiteOrderText();
+
+    try {
+      await navigator.clipboard.writeText(text);
+      window.alert("발주용 텍스트가 복사되었습니다.");
+    } catch {
+      const textarea = document.createElement("textarea");
+
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      window.alert("발주용 텍스트가 복사되었습니다.");
+    }
   };
 
   const handleSaveProject = () => {
-    if (savedEstimates.length === 0) {
+    if (selectedSiteEstimates.length === 0) {
       return;
     }
 
@@ -1629,7 +1870,7 @@ export default function Home() {
 
     const projectId = createSavedEstimateId();
     const createdAt = new Date().toISOString();
-    const zonesSnapshot = deepCopy(savedEstimates.map(createZoneSnapshot));
+    const zonesSnapshot = deepCopy(selectedSiteEstimates.map(createZoneSnapshot));
     const totalsSnapshot = deepCopy(createTotalsSnapshot(zonesSnapshot));
     const summarySnapshot = deepCopy(createSummarySnapshot(totalsSnapshot));
 
@@ -1642,7 +1883,7 @@ export default function Home() {
       projectName: trimmedProjectSaveName,
       savedAt: createdAt,
       materialPriceSnapshot: deepCopy(materialPriceSettings),
-      siteName: siteName.trim() || savedEstimates[0]?.siteName || "현장명 미입력",
+      siteName: selectedSiteName,
       zonesSnapshot,
       totalsSnapshot,
       summarySnapshot,
@@ -1810,17 +2051,54 @@ export default function Home() {
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <label className="grid gap-1 text-xs font-semibold">
-              현장명
+              현장 선택
+              <select
+                value={selectedRegisteredSiteId ?? ""}
+                onChange={(event) => {
+                  const selectedSite = registeredSites.find(
+                    (site) => site.id === event.currentTarget.value,
+                  );
+
+                  if (selectedSite) {
+                    handleSelectRegisteredSite(selectedSite);
+                  }
+                }}
+                className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+              >
+                <option value="">현장을 선택하세요</option>
+                {registeredSites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold">
+              현장명 수정
               <input
                 value={siteName}
-                onChange={(event) => setSiteName(event.currentTarget.value)}
-                onInput={(event) => setSiteName(event.currentTarget.value)}
+                onChange={(event) =>
+                  selectedRegisteredSiteId
+                    ? handleRenameRegisteredSite(
+                        selectedRegisteredSiteId,
+                        event.currentTarget.value,
+                      )
+                    : setSiteName(event.currentTarget.value)
+                }
+                onInput={(event) =>
+                  selectedRegisteredSiteId
+                    ? handleRenameRegisteredSite(
+                        selectedRegisteredSiteId,
+                        event.currentTarget.value,
+                      )
+                    : setSiteName(event.currentTarget.value)
+                }
                 autoComplete="off"
                 spellCheck={false}
                 className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
               />
             </label>
-            <label className="grid gap-1 text-xs font-semibold">
+            <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
               구역명
               <input
                 value={spaceName}
@@ -1989,6 +2267,35 @@ export default function Home() {
                     ))}
                   </select>
                 </label>
+
+                {!isFlatMoldingSelected && (
+                  <fieldset className="grid gap-1 text-xs font-semibold sm:col-span-2">
+                    <legend>판재 발주 방식</legend>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        ["whole", "온장"],
+                        ["half", "쪽"],
+                      ].map(([value, label]) => (
+                        <label
+                          key={value}
+                          className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
+                        >
+                          <input
+                            type="radio"
+                            name="sheetOrderMode"
+                            value={value}
+                            checked={sheetOrderMode === value}
+                            onChange={() =>
+                              setSheetOrderMode(value as SheetOrderMode)
+                            }
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
 
                 {isFlatMoldingSelected && (
                   <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
@@ -2325,6 +2632,14 @@ export default function Home() {
                       value={`${formatNumber(result.sheetQuantity)}장`}
                     />
                     <ResultRow
+                      label="발주 방식"
+                      value={
+                        sheetOrderMode === "half"
+                          ? `쪽 ${formatNumber(result.sheetQuantity * 2)}매`
+                          : "온장"
+                      }
+                    />
+                    <ResultRow
                       label="소송 발주"
                       value={`${formatNumber(result.orderBundles)}단`}
                     />
@@ -2381,7 +2696,7 @@ export default function Home() {
                   onClick={handleSaveEstimate}
                   className="h-10 rounded-md bg-[#94d0bb] px-5 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] sm:h-auto"
                 >
-                  저장
+                  {editingEstimateId ? "수정 저장" : "저장"}
                 </button>
               </div>
               <button
@@ -2404,17 +2719,17 @@ export default function Home() {
                   <h2 className="text-lg font-semibold">저장된 구역 목록</h2>
                 </div>
                 <p className="text-xs font-semibold text-black/52">
-                  {formatNumber(savedEstimates.length)}개 구역
+                  {formatNumber(selectedSiteEstimates.length)}개 구역
                 </p>
               </div>
 
               <div className="mt-2 grid max-h-[46vh] gap-2 overflow-y-auto pr-1 lg:max-h-[52vh]">
-                {savedEstimates.length === 0 ? (
+                {selectedSiteEstimates.length === 0 ? (
                   <p className="rounded-md bg-[#fbfaf7] p-3 text-sm text-black/58">
-                    저장된 구역이 없습니다. 계산 결과를 저장하면 여기에 누적됩니다.
+                    선택된 현장에 저장된 구역이 없습니다.
                   </p>
                 ) : (
-                  savedEstimates.map((estimate) => (
+                  selectedSiteEstimates.map((estimate) => (
                     <article
                       key={estimate.id}
                       className="rounded-md border border-black/10 bg-[#fbfaf7] p-3"
@@ -2430,13 +2745,42 @@ export default function Home() {
                             {estimate.sheetMaterialName}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEstimate(estimate.id)}
-                          className="h-8 shrink-0 rounded-md border border-black/15 px-2 text-xs font-semibold transition-colors hover:bg-white"
-                        >
-                          삭제
-                        </button>
+                        <div className="grid shrink-0 grid-cols-2 gap-1 sm:grid-cols-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedEstimateId((currentEstimateId) =>
+                                currentEstimateId === estimate.id
+                                  ? null
+                                  : estimate.id,
+                              )
+                            }
+                            className="h-8 rounded-md border border-black/15 px-2 text-xs font-semibold transition-colors hover:bg-white"
+                          >
+                            상세보기
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditEstimate(estimate)}
+                            className="h-8 rounded-md border border-black/15 px-2 text-xs font-semibold transition-colors hover:bg-white"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateEstimate(estimate)}
+                            className="h-8 rounded-md border border-black/15 px-2 text-xs font-semibold transition-colors hover:bg-white"
+                          >
+                            복제
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEstimate(estimate.id)}
+                            className="h-8 rounded-md border border-black/15 px-2 text-xs font-semibold transition-colors hover:bg-white"
+                          >
+                            삭제
+                          </button>
+                        </div>
                       </div>
                       <dl className="mt-2 grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
                         {isFlatMoldingEstimate(estimate) ? (
@@ -2485,6 +2829,19 @@ export default function Home() {
                               value={`${formatNumber(estimate.sheetQuantity)}장`}
                             />
                             <SummaryItem
+                              label="발주 방식"
+                              value={
+                                getSheetOrderMode(estimate) === "half"
+                                  ? `쪽 ${formatNumber(
+                                      getSheetOrderQuantity(
+                                        estimate.sheetQuantity,
+                                        "half",
+                                      ),
+                                    )}매`
+                                  : "온장"
+                              }
+                            />
+                            <SummaryItem
                               label="소송 규격"
                               value={
                                 LUMBER_SPEC_TOTALS_TEMPLATE[
@@ -2506,25 +2863,35 @@ export default function Home() {
                               label="총 금액"
                               value={formatCurrency(estimate.totalAmount)}
                             />
-                            <SummaryItem
-                              label={
-                                estimate.workType === "ceiling" ? "면적" : "규격"
-                              }
-                              value={
-                                estimate.workType === "ceiling"
-                                  ? `${formatNumber(
-                                      estimate.convertedAreaM2 ?? 0,
-                                    )}㎡`
-                                  : `${formatNumber(
-                                      estimate.widthMm,
-                                    )}x${formatNumber(
-                                      estimate.depthOrHeightMm,
-                                    )}mm`
-                              }
-                            />
                           </>
                         )}
                       </dl>
+                      {expandedEstimateId === estimate.id ? (
+                        <dl className="mt-2 grid grid-cols-2 gap-1.5 border-t border-black/10 pt-2 text-xs sm:grid-cols-4">
+                          <SummaryItem
+                            label={estimate.workType === "ceiling" ? "면적" : "규격"}
+                            value={
+                              estimate.workType === "ceiling"
+                                ? `${formatNumber(estimate.convertedAreaM2 ?? 0)}㎡`
+                                : `${formatNumber(estimate.widthMm)}x${formatNumber(
+                                    estimate.depthOrHeightMm,
+                                  )}mm`
+                            }
+                          />
+                          <SummaryItem
+                            label="저장일시"
+                            value={estimate.savedAt.slice(0, 16).replace("T", " ")}
+                          />
+                          <SummaryItem
+                            label="판재 금액"
+                            value={formatCurrency(estimate.sheetAmount)}
+                          />
+                          <SummaryItem
+                            label="소송 금액"
+                            value={formatCurrency(estimate.lumberAmount)}
+                          />
+                        </dl>
+                      ) : null}
                     </article>
                   ))
                 )}
@@ -2535,13 +2902,24 @@ export default function Home() {
               <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
                 <div>
                   <p className="text-xs font-bold text-[#94d0bb]">Site total</p>
-                  <h2 className="text-lg font-semibold">현장 전체 합계</h2>
+                  <h2 className="text-lg font-semibold">
+                    {selectedSiteName} 전체 발주 집계
+                  </h2>
                 </div>
-                <div className="rounded-md bg-[#f2d16b] px-3 py-2 text-right text-[#1d1d1b]">
-                  <dt className="text-xs font-bold">전체 금액</dt>
-                  <dd className="text-lg font-bold">
-                    {formatCurrency(totalSummary.totalAmount)}
-                  </dd>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopySiteOrderText()}
+                    className="h-9 rounded-md border border-white/20 px-3 text-xs font-bold text-white transition-colors hover:bg-white/10"
+                  >
+                    거래처 발주용 복사
+                  </button>
+                  <div className="rounded-md bg-[#f2d16b] px-3 py-2 text-right text-[#1d1d1b]">
+                    <dt className="text-xs font-bold">전체 금액</dt>
+                    <dd className="text-lg font-bold">
+                      {formatCurrency(totalSummary.totalAmount)}
+                    </dd>
+                  </div>
                 </div>
               </div>
               <label className="mt-2 grid gap-1 text-xs font-semibold text-white">
@@ -2574,7 +2952,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleSaveProject}
-                disabled={savedEstimates.length === 0}
+                disabled={selectedSiteEstimates.length === 0}
                 className="mt-2 h-9 w-full rounded-md bg-[#94d0bb] px-3 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/35"
               >
                 전체 저장
