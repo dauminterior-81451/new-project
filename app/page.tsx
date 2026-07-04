@@ -2044,18 +2044,23 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+        <section className="rounded-lg border border-black/10 bg-[#fbfaf7] p-3">
           <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
-                Site
+              <p className="text-xs font-bold uppercase tracking-wide text-black/45">
+                Optional site info
               </p>
-              <h2 className="text-lg font-semibold">현장 정보</h2>
+              <h2 className="text-base font-semibold text-black/70">
+                저장용 현장 정보(선택)
+              </h2>
+              <p className="mt-0.5 text-xs text-black/50">
+                계산은 바로 가능하며, 저장할 때만 사용하는 정보입니다.
+              </p>
             </div>
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs font-semibold">
-              현장 선택
+            <label className="grid gap-1 text-xs font-semibold text-black/65">
+              저장된 현장 선택(선택)
               <select
                 value={selectedRegisteredSiteId ?? ""}
                 onChange={(event) => {
@@ -2077,8 +2082,8 @@ export default function Home() {
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-xs font-semibold">
-              현장명 수정
+            <label className="grid gap-1 text-xs font-semibold text-black/65">
+              현장명(선택)
               <input
                 value={siteName}
                 onChange={(event) =>
@@ -2102,7 +2107,7 @@ export default function Home() {
                 className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
               />
             </label>
-            <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
+            <label className="grid gap-1 text-xs font-semibold text-black/65 sm:col-span-2">
               구역명(선택)
               <input
                 value={spaceName}
@@ -2116,8 +2121,8 @@ export default function Home() {
           </div>
           <div className="mt-3 grid gap-2 border-t border-black/10 pt-3">
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <label className="grid gap-1 text-xs font-semibold">
-                현장 등록
+              <label className="grid gap-1 text-xs font-semibold text-black/65">
+                저장용 현장 등록
                 <input
                   value={siteRegistrationName}
                   onChange={(event) =>
@@ -2132,7 +2137,7 @@ export default function Home() {
                       handleAddRegisteredSite();
                     }
                   }}
-                  placeholder="등록할 현장명"
+                  placeholder="저장할 때 사용할 현장명"
                   autoComplete="off"
                   spellCheck={false}
                   className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
@@ -2141,9 +2146,9 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleAddRegisteredSite}
-                className="h-9 self-end rounded-md bg-[#2f6a57] px-4 text-sm font-bold text-white transition-colors hover:bg-[#245342]"
+                className="h-9 self-end rounded-md border border-black/15 bg-white px-4 text-sm font-bold text-black/70 transition-colors hover:bg-[#f4f1eb]"
               >
-                현장 등록
+                저장용 현장 등록
               </button>
             </div>
             <div className="grid gap-1">
