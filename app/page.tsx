@@ -2730,13 +2730,18 @@ export default function Home() {
           </section>
 
           <section className="grid gap-3">
-            <div className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+            <div className="rounded-lg border border-black/10 bg-[#fbfaf7] p-3">
               <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
+                  <p className="text-xs font-bold uppercase tracking-wide text-black/45">
                     Saved zones
                   </p>
-                  <h2 className="text-lg font-semibold">저장된 구역 목록</h2>
+                  <h2 className="text-base font-semibold text-black/70">
+                    저장한 구역 목록(선택)
+                  </h2>
+                  <p className="mt-0.5 text-xs text-black/50">
+                    단건 계산은 저장 없이 결과 영역에서 바로 확인할 수 있습니다.
+                  </p>
                 </div>
                 <p className="text-xs font-semibold text-black/52">
                   {formatNumber(selectedSiteEstimates.length)}개 구역
@@ -2918,13 +2923,16 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-black/10 bg-[#1f2421] p-3 text-white shadow-sm">
+            <div className="rounded-lg border border-black/10 bg-[#2b302d] p-3 text-white">
               <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
                 <div>
-                  <p className="text-xs font-bold text-[#94d0bb]">Site total</p>
-                  <h2 className="text-lg font-semibold">
-                    {selectedSiteName} 전체 발주 집계
+                  <p className="text-xs font-bold text-white/50">Saved zone total</p>
+                  <h2 className="text-base font-semibold">
+                    {selectedSiteName} 저장한 구역 기준 전체 집계
                   </h2>
+                  <p className="mt-0.5 text-xs text-white/58">
+                    저장한 구역이 있을 때만 전체 집계가 표시됩니다.
+                  </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <button
@@ -3064,13 +3072,18 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+            <div className="rounded-lg border border-black/10 bg-[#fbfaf7] p-3">
               <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
+                  <p className="text-xs font-bold uppercase tracking-wide text-black/45">
                     Saved projects
                   </p>
-                  <h2 className="text-lg font-semibold">전체 저장 목록</h2>
+                  <h2 className="text-base font-semibold text-black/70">
+                    저장된 계산 목록
+                  </h2>
+                  <p className="mt-0.5 text-xs text-black/50">
+                    필요할 때만 저장한 전체 계산을 다시 확인합니다.
+                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <p className="text-xs font-semibold text-black/52">
