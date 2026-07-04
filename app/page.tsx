@@ -1135,7 +1135,7 @@ export default function Home() {
     const orderBundles = Math.ceil(actualBundles);
 
     const sheetAmount = sheetQuantity * selectedSheetPrice;
-    const lumberAmount = hasJoistSpacing ? actualBundles * selectedLumberPrice : 0;
+    const lumberAmount = hasJoistSpacing ? orderBundles * selectedLumberPrice : 0;
 
     return {
       area,
