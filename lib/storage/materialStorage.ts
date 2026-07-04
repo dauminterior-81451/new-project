@@ -19,12 +19,17 @@ type SupabaseSelectQuery = PromiseLike<SupabaseResult<StorageRecord[]>> & {
   ) => PromiseLike<SupabaseResult<StorageRecord[]>>;
 };
 
+type SupabaseDeleteQuery = {
+  eq: (column: string, value: string) => PromiseLike<SupabaseResult<unknown>>;
+};
+
 type SupabaseTable = {
   select: (columns?: string) => SupabaseSelectQuery;
   upsert: (
     values: StorageRecord | StorageRecord[],
     options?: { onConflict: string },
   ) => PromiseLike<SupabaseResult<unknown>>;
+  delete: () => SupabaseDeleteQuery;
 };
 
 type SupabaseClient = {
@@ -64,6 +69,27 @@ const getStringValue = (record: StorageRecord, keys: string[]) => {
 const getProjectId = (project: StorageRecord) =>
   getStringValue(project, ["id", "projectId"]) || crypto.randomUUID();
 
+const syncDeletedRecords = async (
+  client: SupabaseClient,
+  tableName: "saved_zones" | "saved_projects",
+  currentIds: string[],
+) => {
+  const { data, error } = await client.from(tableName).select("id");
+
+  if (error || !data?.length) {
+    return;
+  }
+
+  const currentIdSet = new Set(currentIds);
+  const staleIds = data
+    .map((row) => getStringValue(row, ["id"]))
+    .filter((id) => id && !currentIdSet.has(id));
+
+  await Promise.all(
+    staleIds.map((id) => client.from(tableName).delete().eq("id", id)),
+  );
+};
+
 export const loadSavedZones = async <T>() => {
   const localZones = loadJson<T[]>(SAVED_ZONES_STORAGE_KEY) ?? [];
 
@@ -97,22 +123,40 @@ export const saveSavedZones = async <T extends object>(zones: T[]) => {
   try {
     const client = await getClient();
 
-    if (!client || zones.length === 0) {
+    if (!client) {
       return;
     }
 
-    await client.from("saved_zones").upsert(
-      zones.map((zone) => {
+    const zoneRows = zones
+      .map((zone) => {
         const zoneRecord = zone as unknown as StorageRecord;
+        const id = getStringValue(zoneRecord, ["id"]);
 
-        return {
-        id: getStringValue(zoneRecord, ["id"]),
-        zone_name: getStringValue(zoneRecord, ["zoneName", "zone_name"]),
-        site_name: getStringValue(zoneRecord, ["siteName", "site_name"]),
-        data: zone,
-      };
-      }),
-      { onConflict: "id" },
+        return id
+          ? {
+              id,
+              zone_name: getStringValue(zoneRecord, ["zoneName", "zone_name"]),
+              site_name: getStringValue(zoneRecord, ["siteName", "site_name"]),
+              data: zone,
+            }
+          : null;
+      })
+      .filter((row) => row !== null) as StorageRecord[];
+
+    if (zoneRows.length > 0) {
+      const { error } = await client
+        .from("saved_zones")
+        .upsert(zoneRows, { onConflict: "id" });
+
+      if (error) {
+        return;
+      }
+    }
+
+    await syncDeletedRecords(
+      client,
+      "saved_zones",
+      zoneRows.map((row) => getStringValue(row, ["id"])),
     );
   } catch {
     // localStorage remains the source of continuity if Supabase fails.
@@ -139,6 +183,10 @@ export const loadSavedProjects = async <T>() => {
     }
 
     return data.map((row) => {
+      if (isRecord(row.data)) {
+        return row.data as T;
+      }
+
       const id = getStringValue(row, ["id"]) || crypto.randomUUID();
       const projectName = getStringValue(row, ["project_name", "name"]);
       const summarySnapshot = row.summary_snapshot;
@@ -192,28 +240,53 @@ export const saveSavedProjects = async <T extends object>(
   try {
     const client = await getClient();
 
-    if (!client || projects.length === 0) {
+    if (!client) {
       return;
     }
 
-    await client.from("saved_projects").upsert(
-      projects.map((project) => {
-        const projectRecord = project as unknown as StorageRecord;
+    const projectRows = projects.map((project) => {
+      const projectRecord = project as unknown as StorageRecord;
+      const id = getProjectId(projectRecord);
+      const projectName = getStringValue(projectRecord, [
+        "name",
+        "projectSaveName",
+        "projectName",
+      ]);
 
-        return {
-        id: getProjectId(projectRecord),
-        project_name: getStringValue(projectRecord, [
-          "name",
-          "projectSaveName",
-          "projectName",
-        ]),
+      return {
+        id,
+        project_name: projectName,
         site_name: getStringValue(projectRecord, ["siteName", "site_name"]),
         zones_snapshot: projectRecord.zonesSnapshot,
         summary_snapshot: projectRecord.summarySnapshot,
         material_price_snapshot: projectRecord.materialPriceSnapshot,
       };
-      }),
-      { onConflict: "id" },
+    });
+
+    if (projectRows.length > 0) {
+      const projectRowsWithData = projectRows.map((row, index) => ({
+        ...row,
+        data: projects[index] as unknown as StorageRecord,
+      }));
+      const { error } = await client
+        .from("saved_projects")
+        .upsert(projectRowsWithData, { onConflict: "id" });
+
+      if (error) {
+        const { error: fallbackError } = await client
+          .from("saved_projects")
+          .upsert(projectRows, { onConflict: "id" });
+
+        if (fallbackError) {
+          return;
+        }
+      }
+    }
+
+    await syncDeletedRecords(
+      client,
+      "saved_projects",
+      projectRows.map((row) => row.id),
     );
   } catch {
     // localStorage remains the source of continuity if Supabase fails.
