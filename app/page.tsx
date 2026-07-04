@@ -1614,7 +1614,7 @@ export default function Home() {
         spec: selectedLumber?.size || "-",
         quantity: result.orderBundles,
         unit: "단",
-        note: `참고 ${formatNumber(result.lumberPieces)}본`,
+        note: "",
       });
     }
 
@@ -1631,7 +1631,7 @@ export default function Home() {
           `규격: ${line.spec}`,
           `수량: ${formatNumber(line.quantity)}`,
           `단위: ${line.unit}`,
-          `비고: ${line.note}`,
+          line.note ? `비고: ${line.note}` : null,
         ].filter((value): value is string => value !== null),
       ),
     ].join("\n");
