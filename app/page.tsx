@@ -1606,14 +1606,17 @@ export default function Home() {
             ? `${formatNumber(result.sheetQuantity)}장 재단 요청`
             : "",
       },
-      {
+    ];
+
+    if (result.orderBundles > 0) {
+      orderLines.push({
         name: result.selectedLumberName || "소송",
         spec: selectedLumber?.size || "-",
-        quantity: result.lumberPieces,
-        unit: "본",
-        note: "",
-      },
-    ];
+        quantity: result.orderBundles,
+        unit: "단",
+        note: `참고 ${formatNumber(result.lumberPieces)}본`,
+      });
+    }
 
     return [
       "[목공 자재 발주]",
