@@ -1749,6 +1749,10 @@ export default function Home() {
     );
   };
 
+  const handleCancelEditEstimate = () => {
+    setEditingEstimateId(null);
+  };
+
   const handleEditEstimate = (estimate: SavedEstimate) => {
     setEditingEstimateId(estimate.id);
     setExpandedEstimateId(estimate.id);
@@ -2691,13 +2695,24 @@ export default function Home() {
                     {formatCurrency(result.totalAmount)}
                   </dd>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSaveEstimate}
-                  className="h-10 rounded-md bg-[#94d0bb] px-5 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] sm:h-auto"
-                >
-                  {editingEstimateId ? "수정 저장" : "저장"}
-                </button>
+                <div className="grid gap-2 sm:min-w-28">
+                  <button
+                    type="button"
+                    onClick={handleSaveEstimate}
+                    className="h-10 rounded-md bg-[#94d0bb] px-5 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] sm:h-auto"
+                  >
+                    {editingEstimateId ? "수정 저장" : "저장"}
+                  </button>
+                  {editingEstimateId ? (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditEstimate}
+                      className="h-9 rounded-md border border-white/20 px-4 text-sm font-bold text-white transition-colors hover:bg-white/10"
+                    >
+                      수정 취소
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <button
                 type="button"
