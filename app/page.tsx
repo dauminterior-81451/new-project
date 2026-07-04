@@ -2103,7 +2103,7 @@ export default function Home() {
               />
             </label>
             <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
-              구역명
+              구역명(선택)
               <input
                 value={spaceName}
                 onChange={(event) => setSpaceName(event.currentTarget.value)}
@@ -2695,13 +2695,20 @@ export default function Home() {
                     {formatCurrency(result.totalAmount)}
                   </dd>
                 </div>
-                <div className="grid gap-2 sm:min-w-28">
+                <div className="grid gap-2 sm:min-w-36">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyKakaoText()}
+                    className="h-10 rounded-md bg-[#94d0bb] px-5 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] sm:h-auto"
+                  >
+                    거래처 발주용 복사
+                  </button>
                   <button
                     type="button"
                     onClick={handleSaveEstimate}
-                    className="h-10 rounded-md bg-[#94d0bb] px-5 text-sm font-bold text-[#1d1d1b] transition-colors hover:bg-[#b4e3d2] sm:h-auto"
+                    className="h-10 rounded-md border border-white/20 px-5 text-sm font-bold text-white transition-colors hover:bg-white/10 sm:h-auto"
                   >
-                    {editingEstimateId ? "수정 저장" : "저장"}
+                    {editingEstimateId ? "수정 저장" : "구역 저장(선택)"}
                   </button>
                   {editingEstimateId ? (
                     <button
@@ -2714,13 +2721,6 @@ export default function Home() {
                   ) : null}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleCopyKakaoText()}
-                className="mt-2 h-10 w-full rounded-md border border-white/20 px-4 text-sm font-bold text-white transition-colors hover:bg-white/10"
-              >
-                거래처 발주용 복사
-              </button>
             </div>
           </section>
 
