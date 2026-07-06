@@ -1828,11 +1828,11 @@ export default function Home() {
   };
 
   const createSiteOrderText = () => {
-    const materialLines = selectedSiteEstimates.flatMap((estimate) => {
+    const materialLines = selectedSiteEstimates.map((estimate) => {
       const materialName = getEstimateSheetMaterialName(estimate, pricedMaterials);
 
       if (isFlatMoldingEstimate(estimate)) {
-        return [`${materialName} ${formatNumber(estimate.sheetQuantity)}개`];
+        return `${materialName} ${formatNumber(estimate.sheetQuantity)}개`;
       }
 
       const orderMode = getSheetOrderMode(estimate);
@@ -1841,19 +1841,22 @@ export default function Home() {
         orderMode,
       );
       const sheetUnit = getSheetOrderUnit(orderMode);
-      const sheetLine =
-        orderMode === "half"
-          ? `${materialName} ${formatNumber(estimate.sheetQuantity)}장 재단 요청, 쪽 ${formatNumber(sheetQuantity)}매`
-          : `${materialName} ${formatNumber(sheetQuantity)}${sheetUnit}`;
-      const lumberLine =
-        estimate.lumberOrderBundles > 0
-          ? `${estimate.lumberName || LUMBER_SPEC_TOTALS_TEMPLATE[getLumberSpecId(estimate)].name} ${formatNumber(estimate.lumberOrderBundles)}단`
-          : null;
 
-      return [sheetLine, lumberLine].filter(
-        (line): line is string => line !== null,
-      );
+      return orderMode === "half"
+        ? `${materialName} ${formatNumber(estimate.sheetQuantity)}장 재단 요청, 쪽 ${formatNumber(sheetQuantity)}매`
+        : `${materialName} ${formatNumber(sheetQuantity)}${sheetUnit}`;
     });
+    const lumberLines = (
+      Object.entries(totalSummary.byLumberSpec) as [
+        LumberSpecKey,
+        LumberSpecTotal,
+      ][]
+    )
+      .filter(([, specTotal]) => specTotal.orderBundles > 0)
+      .map(
+        ([, specTotal]) =>
+          `${specTotal.name} ${formatNumber(specTotal.orderBundles)}단`,
+      );
 
     return [
       "[목자재 발주 요청]",
@@ -1861,6 +1864,7 @@ export default function Home() {
       `현장명: ${selectedSiteName}`,
       "",
       ...materialLines,
+      ...lumberLines,
       "",
       "확인 후 납품 가능 일정 부탁드립니다.",
     ].join("\n");
