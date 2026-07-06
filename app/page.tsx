@@ -1210,13 +1210,47 @@ export default function Home() {
         const specTotal = accumulator[specId];
 
         specTotal.pieces += estimate.lumberPieces;
-        specTotal.orderBundles += estimate.lumberOrderBundles;
-        specTotal.amount += estimate.lumberAmount;
 
         return accumulator;
       },
       createEmptyLumberSpecTotals(),
     );
+
+    (Object.entries(byLumberSpec) as [LumberSpecKey, LumberSpecTotal][]).forEach(
+      ([specId, specTotal]) => {
+        const currentLumberPrice = pricedMaterials.find(
+          (material) => material.id === specId,
+        )?.price;
+        const defaultLumberPrice = materials.find(
+          (material) => material.id === specId,
+        )?.price;
+        const savedLumberUnitPrice = selectedSiteEstimates
+          .filter(
+            (estimate) =>
+              !isFlatMoldingEstimate(estimate) &&
+              getLumberSpecId(estimate) === specId &&
+              estimate.lumberOrderBundles > 0,
+          )
+          .map((estimate) => estimate.lumberAmount / estimate.lumberOrderBundles)
+          .find((price) => Number.isFinite(price) && price > 0);
+        const lumberPrice =
+          currentLumberPrice ?? defaultLumberPrice ?? savedLumberUnitPrice ?? 0;
+
+        specTotal.orderBundles =
+          specTotal.bundleCount > 0
+            ? Math.ceil(specTotal.pieces / specTotal.bundleCount)
+            : 0;
+        specTotal.amount = specTotal.orderBundles * lumberPrice;
+      },
+    );
+
+    const totalSheetAmount = selectedSiteEstimates.reduce(
+      (sum, estimate) => sum + estimate.sheetAmount,
+      0,
+    );
+    const totalLumberAmount = (
+      Object.values(byLumberSpec) as LumberSpecTotal[]
+    ).reduce((sum, specTotal) => sum + specTotal.amount, 0);
 
     return {
       totalSheetQuantity: selectedSiteEstimates.reduce(
@@ -1234,25 +1268,12 @@ export default function Home() {
           isFlatMoldingEstimate(estimate) ? sum : sum + estimate.lumberPieces,
         0,
       ),
-      totalLumberOrderBundles: selectedSiteEstimates.reduce(
-        (sum, estimate) =>
-          isFlatMoldingEstimate(estimate)
-            ? sum
-            : sum + estimate.lumberOrderBundles,
-        0,
-      ),
-      totalSheetAmount: selectedSiteEstimates.reduce(
-        (sum, estimate) => sum + estimate.sheetAmount,
-        0,
-      ),
-      totalLumberAmount: selectedSiteEstimates.reduce(
-        (sum, estimate) => sum + estimate.lumberAmount,
-        0,
-      ),
-      totalAmount: selectedSiteEstimates.reduce(
-        (sum, estimate) => sum + estimate.totalAmount,
-        0,
-      ),
+      totalLumberOrderBundles: (
+        Object.values(byLumberSpec) as LumberSpecTotal[]
+      ).reduce((sum, specTotal) => sum + specTotal.orderBundles, 0),
+      totalSheetAmount,
+      totalLumberAmount,
+      totalAmount: totalSheetAmount + totalLumberAmount,
       byMaterial,
       byLumberSpec,
     };
