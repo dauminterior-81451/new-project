@@ -125,6 +125,7 @@ type SavedEstimate = {
   sheetMaterialUnit?: string;
   sheetMaterialPrice: number;
   sheetOrderMode?: SheetOrderMode;
+  gypsumLayer?: GypsumLayer;
   sheetQuantity: number;
   sheetAmount: number;
   lossRateSnapshot?: number;
@@ -604,6 +605,19 @@ const getSheetOrderQuantity = (
 
 const getSheetOrderUnit = (orderMode: SheetOrderMode) =>
   orderMode === "half" ? "쪽" : "장";
+
+const getEstimateGypsumLayer = (estimate: SavedEstimate): GypsumLayer => {
+  if (estimate.gypsumLayer === 1 || estimate.gypsumLayer === 2) {
+    return estimate.gypsumLayer;
+  }
+
+  return estimate.sheetQuantity > 0 &&
+    estimate.baseSheetQuantity &&
+    estimate.baseSheetQuantity > 0 &&
+    estimate.sheetQuantity / estimate.baseSheetQuantity > 1.5
+    ? 2
+    : 1;
+};
 
 const getProjectDisplayName = (project: SavedProject) =>
   project.name || project.projectSaveName || project.projectName || project.siteName;
@@ -1716,6 +1730,7 @@ export default function Home() {
       sheetMaterialUnit: selectedSheetMaterial?.unit ?? "장",
       sheetMaterialPrice: selectedSheetMaterial?.price ?? 0,
       sheetOrderMode: isFlatMoldingSelected ? "whole" : sheetOrderMode,
+      gypsumLayer: isFlatMoldingSelected ? undefined : gypsumLayer,
       sheetQuantity: result.sheetQuantity,
       sheetAmount: result.sheetAmount,
       lossRateSnapshot: Math.max(0, Number(lossRate) || 0),
@@ -1765,14 +1780,7 @@ export default function Home() {
     setSheetCategory(estimate.sheetCategory);
     setSheetMaterialId(estimate.sheetMaterialId ?? "");
     setSheetOrderMode(getSheetOrderMode(estimate));
-    setGypsumLayer(
-      estimate.sheetQuantity > 0 &&
-        estimate.baseSheetQuantity &&
-        estimate.baseSheetQuantity > 0 &&
-        estimate.sheetQuantity / estimate.baseSheetQuantity > 1.5
-        ? 2
-        : 1,
-    );
+    setGypsumLayer(getEstimateGypsumLayer(estimate));
     setLossRate(String(estimate.lossRateSnapshot ?? 0));
     setJoistSpacing(estimate.joistSpacing);
     setLumberSelection(estimate.lumberSpecId ?? "auto");
