@@ -2446,31 +2446,26 @@ export default function Home() {
                 {!isFlatMoldingSelected && (
                 <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>목상 간격</legend>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[300, 450].map((spacing) => (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      [null, "목상 없음"],
+                      [300, "300mm"],
+                      [450, "450mm"],
+                    ].map(([spacing, label]) => (
                       <button
                         type="button"
-                        key={spacing}
-                        onClick={() =>
-                          setJoistSpacing((currentSpacing) =>
-                            currentSpacing === spacing
-                              ? null
-                              : (spacing as JoistSpacing),
-                          )
-                        }
+                        key={label}
+                        onClick={() => setJoistSpacing(spacing as JoistSpacing)}
                         className={`flex h-9 items-center justify-center rounded-md border border-black/15 text-sm ${
                           joistSpacing === spacing
                             ? "border-[#2f6a57] bg-[#e4f0eb]"
                             : ""
                         }`}
                       >
-                        {spacing}mm
+                        {label}
                       </button>
                     ))}
                   </div>
-                  {joistSpacing === null ? (
-                    <p className="text-xs font-bold text-[#2f6a57]">목상 없음</p>
-                  ) : null}
                 </fieldset>
                 )}
 
