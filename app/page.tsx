@@ -1610,9 +1610,6 @@ export default function Home() {
       return [
         "[목공 자재 발주]",
         "",
-        `현장명: ${siteName.trim() || "현장"}`,
-        `구역명: ${spaceName.trim() || "구역"}`,
-        "",
         `자재명: ${selectedSheetMaterial?.name || "평몰딩"}`,
         `규격: ${moldingSpec}`,
         `수량: ${formatNumber(result.sheetQuantity)}`,
@@ -1656,9 +1653,6 @@ export default function Home() {
 
     return [
       "[목공 자재 발주]",
-      "",
-      `현장명: ${siteName.trim() || "현장"}`,
-      `구역명: ${spaceName.trim() || "구역"}`,
       "",
       ...orderLines.flatMap((line, index) =>
         [
