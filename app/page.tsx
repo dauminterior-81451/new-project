@@ -96,6 +96,7 @@ const MAX_GENERAL_SPAN_MM = 20_000;
 const MAX_GENERAL_HEIGHT_MM = 5_000;
 const MAX_GENERAL_AREA_M2 = 100;
 const REGISTERED_SITES_STORAGE_KEY = "daum-material-registered-sites";
+const SHOW_MANAGEMENT_SECTIONS = false;
 
 type SavedEstimate = {
   id: string;
@@ -2080,6 +2081,7 @@ export default function Home() {
           </div>
         </header>
 
+        {SHOW_MANAGEMENT_SECTIONS && (
         <section className="rounded-lg border border-black/10 bg-[#fbfaf7] p-3">
           <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
             <div>
@@ -2223,6 +2225,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+        )}
 
         <div className="grid gap-3">
           <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -2546,12 +2549,7 @@ export default function Home() {
               <div className="flex flex-col gap-1 border-b border-white/10 pb-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-bold text-[#94d0bb]">Result</p>
-                  <h2 className="text-base font-semibold">
-                    현재 구역 계산 결과
-                  </h2>
-                  <p className="mt-0.5 text-xs text-white/65">
-                    {siteName || "현장명"} / {spaceName || "구역명"}
-                  </p>
+                  <h2 className="text-base font-semibold">계산 결과</h2>
                 </div>
                 <p className="text-xs text-white/58">
                   {isFlatMoldingSelected
@@ -2744,6 +2742,7 @@ export default function Home() {
                   >
                     거래처 발주용 복사
                   </button>
+                  {SHOW_MANAGEMENT_SECTIONS && (
                   <button
                     type="button"
                     onClick={handleSaveEstimate}
@@ -2751,7 +2750,8 @@ export default function Home() {
                   >
                     {editingEstimateId ? "수정 저장" : "구역 저장(선택)"}
                   </button>
-                  {editingEstimateId ? (
+                  )}
+                  {SHOW_MANAGEMENT_SECTIONS && editingEstimateId ? (
                     <button
                       type="button"
                       onClick={handleCancelEditEstimate}
@@ -2765,6 +2765,7 @@ export default function Home() {
             </div>
           </section>
 
+          {SHOW_MANAGEMENT_SECTIONS && (
           <section className="grid gap-3">
             <div className="rounded-lg border border-black/10 bg-[#fbfaf7] p-3">
               <div className="flex items-center justify-between gap-3 border-b border-black/10 pb-2">
@@ -3238,9 +3239,10 @@ export default function Home() {
               </div>
             </div>
           </section>
+          )}
         </div>
       </section>
-      {selectedProject ? (
+      {SHOW_MANAGEMENT_SECTIONS && selectedProject ? (
         <ProjectDetail
           project={selectedProject}
           onClose={() => setSelectedProjectId(null)}
