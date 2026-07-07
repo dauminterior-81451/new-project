@@ -2552,6 +2552,10 @@ export default function Home() {
                 {isFlatMoldingSelected ? (
                   <>
                     <ResultRow
+                      label="최종발주"
+                      value={`${formatNumber(result.sheetQuantity)}개`}
+                    />
+                    <ResultRow
                       label="자재명"
                       value={selectedSheetMaterial?.name ?? "평몰딩"}
                     />
@@ -2575,57 +2579,69 @@ export default function Home() {
                       value={`${formatNumber(result.calculatedSheetQuantity)}개`}
                     />
                     <ResultRow
-                      label="최종발주"
-                      value={`${formatNumber(result.sheetQuantity)}개`}
-                    />
-                    <ResultRow
                       label="금액"
                       value={formatCurrency(result.sheetAmount)}
-                    />
-                  </>
-                ) : workType === "ceiling" ? (
-                  <>
-                    <ResultRow
-                      label="입력 면적"
-                      value={`${formatNumber(result.ceilingAreaInput)} ${
-                        result.ceilingAreaUnit === "m2" ? "㎡" : "㎟"
-                      }`}
-                    />
-                    <ResultRow
-                      label="환산 면적"
-                      value={`${formatNumber(result.convertedCeilingArea)} ㎡`}
-                    />
-                    <ResultRow
-                      label="목상 계산"
-                      value={
-                        result.lumberCalculationMethod === "cad-total-length"
-                          ? "CAD 총길이 기준"
-                          : "면적 기준 추정값"
-                      }
                     />
                   </>
                 ) : (
                   <>
                     <ResultRow
-                      label="벽체 가로"
-                      value={`${formatNumber(result.width)}mm`}
+                      label="필요 장수"
+                      value={`${formatNumber(result.sheetQuantity)}장`}
                     />
                     <ResultRow
-                      label="벽체 높이"
-                      value={`${formatNumber(result.depthOrHeight)}mm`}
+                      label="발주 방식"
+                      value={
+                        sheetOrderMode === "half"
+                          ? `쪽 ${formatNumber(result.sheetQuantity * 2)}매`
+                          : "온장"
+                      }
                     />
                     <ResultRow
-                      label="벽체 면적"
-                      value={`${formatNumber(result.area)} ㎡`}
+                      label="소송 발주"
+                      value={`${formatNumber(result.orderBundles)}단`}
                     />
-                    <ResultRow
-                      label="벽체 목상"
-                      value="세로 다테 + 상하단 런너"
-                    />
-                  </>
-                )}
-                {!isFlatMoldingSelected && (
-                  <>
+                    {workType === "ceiling" ? (
+                      <>
+                        <ResultRow
+                          label="입력 면적"
+                          value={`${formatNumber(result.ceilingAreaInput)} ${
+                            result.ceilingAreaUnit === "m2" ? "㎡" : "㎟"
+                          }`}
+                        />
+                        <ResultRow
+                          label="환산 면적"
+                          value={`${formatNumber(result.convertedCeilingArea)} ㎡`}
+                        />
+                        <ResultRow
+                          label="목상 계산"
+                          value={
+                            result.lumberCalculationMethod === "cad-total-length"
+                              ? "CAD 총길이 기준"
+                              : "면적 기준 추정값"
+                          }
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <ResultRow
+                          label="벽체 가로"
+                          value={`${formatNumber(result.width)}mm`}
+                        />
+                        <ResultRow
+                          label="벽체 높이"
+                          value={`${formatNumber(result.depthOrHeight)}mm`}
+                        />
+                        <ResultRow
+                          label="벽체 면적"
+                          value={`${formatNumber(result.area)} ㎡`}
+                        />
+                        <ResultRow
+                          label="벽체 목상"
+                          value="세로 다테 + 상하단 런너"
+                        />
+                      </>
+                    )}
                     <ResultRow
                       label="목상 간격"
                       value={
@@ -2657,22 +2673,6 @@ export default function Home() {
                       value={`${formatNumber(selectedSheetSize.width)}x${formatNumber(
                         selectedSheetSize.height,
                       )}mm`}
-                    />
-                    <ResultRow
-                      label="필요 장수"
-                      value={`${formatNumber(result.sheetQuantity)}장`}
-                    />
-                    <ResultRow
-                      label="발주 방식"
-                      value={
-                        sheetOrderMode === "half"
-                          ? `쪽 ${formatNumber(result.sheetQuantity * 2)}매`
-                          : "온장"
-                      }
-                    />
-                    <ResultRow
-                      label="소송 발주"
-                      value={`${formatNumber(result.orderBundles)}단`}
                     />
                     <ResultRow
                       label="판재 금액"
