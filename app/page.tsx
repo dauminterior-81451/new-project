@@ -2312,34 +2312,6 @@ export default function Home() {
                   </select>
                 </label>
 
-                {!isFlatMoldingSelected && (
-                  <fieldset className="grid gap-1 text-xs font-semibold sm:col-span-2">
-                    <legend>판재 발주 방식</legend>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {[
-                        ["whole", "온장"],
-                        ["half", "쪽"],
-                      ].map(([value, label]) => (
-                        <label
-                          key={value}
-                          className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
-                        >
-                          <input
-                            type="radio"
-                            name="sheetOrderMode"
-                            value={value}
-                            checked={sheetOrderMode === value}
-                            onChange={() =>
-                              setSheetOrderMode(value as SheetOrderMode)
-                            }
-                            className="sr-only"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
 
                 {isFlatMoldingSelected && (
                   <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
@@ -2441,6 +2413,35 @@ export default function Home() {
                       />
                     </label>
                   </>
+                )}
+
+                {!isFlatMoldingSelected && (
+                  <fieldset className="grid gap-1 text-xs font-semibold sm:col-span-2">
+                    <legend>판재 발주 방식</legend>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        ["whole", "온장"],
+                        ["half", "쪽"],
+                      ].map(([value, label]) => (
+                        <label
+                          key={value}
+                          className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
+                        >
+                          <input
+                            type="radio"
+                            name="sheetOrderMode"
+                            value={value}
+                            checked={sheetOrderMode === value}
+                            onChange={() =>
+                              setSheetOrderMode(value as SheetOrderMode)
+                            }
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 )}
 
                 {!isFlatMoldingSelected && (
