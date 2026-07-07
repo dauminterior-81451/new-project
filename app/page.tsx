@@ -2446,6 +2446,41 @@ export default function Home() {
 
                 {!isFlatMoldingSelected && (
                 <fieldset className="grid gap-1 text-xs font-semibold">
+                  <legend>자재 겹수</legend>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[1, 2].map((layer) => (
+                      <label
+                        key={layer}
+                        className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
+                      >
+                        <input
+                          type="radio"
+                          name="gypsumLayer"
+                          value={layer}
+                          checked={gypsumLayer === layer}
+                          onChange={() => setGypsumLayer(layer as GypsumLayer)}
+                          className="sr-only"
+                        />
+                        {layer}P
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                )}
+
+                <label className="grid gap-1 text-xs font-semibold">
+                  로스율(%)
+                  <input
+                    type="number"
+                    min="0"
+                    value={lossRate}
+                    onChange={(event) => setLossRate(event.target.value)}
+                    className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
+                  />
+                </label>
+
+                {!isFlatMoldingSelected && (
+                <fieldset className="grid gap-1 text-xs font-semibold">
                   <legend>목상 간격</legend>
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
@@ -2499,41 +2534,6 @@ export default function Home() {
                   </div>
                 </fieldset>
                 )}
-
-                {!isFlatMoldingSelected && (
-                <fieldset className="grid gap-1 text-xs font-semibold">
-                  <legend>자재 겹수</legend>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[1, 2].map((layer) => (
-                      <label
-                        key={layer}
-                        className="flex h-9 items-center justify-center rounded-md border border-black/15 text-sm has-[:checked]:border-[#2f6a57] has-[:checked]:bg-[#e4f0eb]"
-                      >
-                        <input
-                          type="radio"
-                          name="gypsumLayer"
-                          value={layer}
-                          checked={gypsumLayer === layer}
-                          onChange={() => setGypsumLayer(layer as GypsumLayer)}
-                          className="sr-only"
-                        />
-                        {layer}P
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                )}
-
-                <label className="grid gap-1 text-xs font-semibold">
-                  로스율(%)
-                  <input
-                    type="number"
-                    min="0"
-                    value={lossRate}
-                    onChange={(event) => setLossRate(event.target.value)}
-                    className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
-                  />
-                </label>
               </div>
             </div>
 
