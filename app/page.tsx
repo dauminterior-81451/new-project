@@ -2049,15 +2049,15 @@ export default function Home() {
         <header className="flex flex-col gap-2 border-b border-black/10 pb-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
-              Daum Interior Material Calculator
+              Wood Material Quantity Calculator
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-              목공 자재 산출 프로그램
+              목자재 수량 계산기
             </h1>
           </div>
           <div className="flex flex-col gap-2 md:items-end">
             <p className="text-xs font-medium text-black/55">
-              소송 기준: 천장 12자 추천 / 벽체 8자 추천 / 1단 12본
+              천장·벽체·평몰딩·단열재 수량과 예상 금액을 빠르게 계산합니다.
             </p>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
               <p className="text-xs font-semibold text-black/50">
