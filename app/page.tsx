@@ -2401,7 +2401,7 @@ export default function Home() {
                       </div>
                     </fieldset>
                     <label className="grid gap-1 text-xs font-semibold sm:col-span-2">
-                      목상 총 길이(mm, 선택)
+                      목상 길이 직접 입력(선택)
                       <input
                         type="number"
                         min="0"
@@ -2409,7 +2409,7 @@ export default function Home() {
                         onChange={(event) =>
                           setCeilingLumberLengthMm(event.target.value)
                         }
-                        placeholder="CAD 총 목상 길이를 알 때만 입력"
+                        placeholder="CAD에서 목상 총길이를 뽑았을 때만 입력"
                         className="h-9 rounded-md border border-black/15 bg-white px-2 text-sm font-normal outline-none focus:border-[#2f6a57]"
                       />
                     </label>
