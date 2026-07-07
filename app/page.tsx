@@ -272,6 +272,9 @@ const parseAmountInput = (value: string) => {
 const formatDateTime = (value: string | null) =>
   value ? value.slice(0, 16).replace("T", " ") : "기본 단가 사용 중";
 
+const formatCurrentPriceStatus = (value: string | null) =>
+  value ? `${value.slice(0, 16).replace("T", " ")} 수정` : "기본 단가 사용 중";
+
 const toPositiveNumber = (value: string) => {
   const parsed = Number(value);
 
@@ -2061,8 +2064,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
               <p className="text-xs font-semibold text-black/50">
-                마지막 단가 수정일:{" "}
-                {formatDateTime(materialPriceSettings.updatedAt)}
+                현재 단가: {formatCurrentPriceStatus(materialPriceSettings.updatedAt)}
               </p>
               <button
                 type="button"
@@ -2229,7 +2231,7 @@ export default function Home() {
                   <p className="text-xs font-bold uppercase tracking-wide text-[#2f6a57]">
                     Input
                   </p>
-                  <h2 className="text-lg font-semibold">자재 산출 입력 영역</h2>
+                  <h2 className="text-lg font-semibold">계산 입력</h2>
                 </div>
               </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -2542,7 +2544,7 @@ export default function Home() {
             <div className="rounded-lg border border-black/10 bg-[#1f2421] p-3 text-white shadow-sm">
               <div className="flex flex-col gap-1 border-b border-white/10 pb-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-bold text-[#94d0bb]">Result</p>
+                  <p className="text-xs font-bold text-[#94d0bb]">결과</p>
                   <h2 className="text-base font-semibold">계산 결과</h2>
                 </div>
                 <p className="text-xs text-white/58">
