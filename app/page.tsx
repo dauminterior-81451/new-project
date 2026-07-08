@@ -1615,8 +1615,7 @@ export default function Home() {
         "",
         `자재명: ${selectedSheetMaterial?.name || "평몰딩"}`,
         `규격: ${moldingSpec}`,
-        `수량: ${formatNumber(result.sheetQuantity)}`,
-        `단위: 개`,
+        `수량: ${formatNumber(result.sheetQuantity)}개`,
         `비고: 입력 길이 ${formatNumber(result.flatMoldingLength)}mm`,
       ].join("\n");
     }
@@ -1662,8 +1661,7 @@ export default function Home() {
           index > 0 ? "" : null,
           `자재명: ${line.name}`,
           `규격: ${line.spec}`,
-          `수량: ${formatNumber(line.quantity)}`,
-          `단위: ${line.unit}`,
+          `수량: ${formatNumber(line.quantity)}${line.unit}`,
           line.note ? `비고: ${line.note}` : null,
         ].filter((value): value is string => value !== null),
       ),
