@@ -2599,7 +2599,11 @@ export default function Home() {
                     />
                     <ResultRow
                       label="소송 발주"
-                      value={`${formatNumber(result.orderBundles)}단`}
+                      value={
+                        result.spacing === null
+                          ? "없음"
+                          : `${formatNumber(result.orderBundles)}단`
+                      }
                     />
                     {workType === "ceiling" ? (
                       <>
@@ -2654,16 +2658,20 @@ export default function Home() {
                       label="목상 총 길이"
                       value={`${formatNumber(result.lumberLength)}mm`}
                     />
-                    <ResultRow
-                      label="소송 규격"
-                      value={`${result.selectedLumberName}${
-                        lumberSelection === "auto" ? " (자동)" : ""
-                      }`}
-                    />
-                    <ResultRow
-                      label="소송 1본 길이"
-                      value={`${formatNumber(result.selectedLumberLength)}mm`}
-                    />
+                    {result.spacing !== null && (
+                      <>
+                        <ResultRow
+                          label="소송 규격"
+                          value={`${result.selectedLumberName}${
+                            lumberSelection === "auto" ? " (자동)" : ""
+                          }`}
+                        />
+                        <ResultRow
+                          label="소송 1본 길이"
+                          value={`${formatNumber(result.selectedLumberLength)}mm`}
+                        />
+                      </>
+                    )}
                     <ResultRow
                       label="자재명"
                       value={selectedSheetMaterial?.name ?? ""}
@@ -2678,10 +2686,12 @@ export default function Home() {
                       label="판재 금액"
                       value={formatCurrency(result.sheetAmount)}
                     />
-                    <ResultRow
-                      label="소송 금액"
-                      value={formatCurrency(result.lumberAmount)}
-                    />
+                    {result.spacing !== null && (
+                      <ResultRow
+                        label="소송 금액"
+                        value={formatCurrency(result.lumberAmount)}
+                      />
+                    )}
                   </>
                 )}
               </dl>
@@ -2701,17 +2711,19 @@ export default function Home() {
                     finalLabel="최종발주"
                     finalValue={`${formatNumber(result.sheetQuantity)}장`}
                   />
-                  <CalculationProcess
-                    title={result.selectedLumberName || "소송"}
-                    baseLabel="기본수량"
-                    baseValue={`${formatNumber(result.baseLumberPieces)}본`}
-                    lossRateText="소송 계산 미적용"
-                    calculatedValue={`${formatNumber(
-                      result.calculatedLumberPieces,
-                    )}본`}
-                    finalLabel="최종본수"
-                    finalValue={`${formatNumber(result.lumberPieces)}본`}
-                  />
+                  {result.spacing !== null && (
+                    <CalculationProcess
+                      title={result.selectedLumberName || "소송"}
+                      baseLabel="기본수량"
+                      baseValue={`${formatNumber(result.baseLumberPieces)}본`}
+                      lossRateText="소송 계산 미적용"
+                      calculatedValue={`${formatNumber(
+                        result.calculatedLumberPieces,
+                      )}본`}
+                      finalLabel="최종본수"
+                      finalValue={`${formatNumber(result.lumberPieces)}본`}
+                    />
+                  )}
                 </div>
               )}
 
