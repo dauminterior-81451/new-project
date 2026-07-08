@@ -2642,7 +2642,7 @@ export default function Home() {
                         />
                         <ResultRow
                           label="벽체 목상"
-                          value="세로 다테 + 상하단 런너"
+                          value="세로 목상 + 상하 목상"
                         />
                       </>
                     )}
